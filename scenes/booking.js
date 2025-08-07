@@ -269,7 +269,7 @@ const bookingScene = new WizardScene(
     }
     
     // Обработка кнопки "Помощь"
-    if (ctx.message && ctx.message.text === 'Помощь') {
+    if (ctx.message && ctx.message.text === 'ℹ️ Помощь') {
       await ctx.reply('@streetnoiser - связаться');
       return;
     }
@@ -299,9 +299,9 @@ bookingScene.action('confirm', async (ctx) => {
     ctx.telegram.sendMessage(process.env.ADMIN_ID || require('../config').ADMIN_ID,
       `Новая запись: ${user.first_name} @${user.username}\n${formatDateDMY(date)} ${time}`);
     ctx.reply('Выберите действие:', Markup.keyboard([
-      ['Записаться на стрижку'],
-      ['Мои записи', 'Отменить запись'],
-      ['Помощь']
+      ['✂️ Записаться на стрижку'],
+      ['📋 Мои записи', '❌ Отменить запись'],
+      ['ℹ️ Помощь']
     ]).resize());
     return ctx.scene.leave();
   });
