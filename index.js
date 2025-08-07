@@ -48,47 +48,13 @@ function initDatabase() {
         return;
       }
       
-      // Добавляем тестовые слоты только локально, не на Railway
-      if (row.count === 0 && !process.env.DATABASE_URL) {
-        console.log('📝 База данных пуста, добавляем тестовые слоты...');
-        
-        // Создаем слоты на следующие 7 дней
-        const today = new Date();
-        const slots = [];
-        
-        for (let i = 0; i < 7; i++) {
-          const date = new Date(today.getTime() + i * 24 * 60 * 60 * 1000);
-          const dateStr = date.toISOString().split('T')[0];
-          
-          // Добавляем слоты с 9:00 до 18:00 каждый час
-          for (let hour = 9; hour <= 18; hour++) {
-            const timeStr = `${hour.toString().padStart(2, '0')}:00`;
-            slots.push([dateStr, timeStr]);
-          }
-        }
-        
-        // Вставляем слоты
-        const stmt = db.prepare('INSERT OR IGNORE INTO slots (date, time, is_booked) VALUES (?, ?, 0)');
-        slots.forEach(([date, time]) => {
-          stmt.run([date, time]);
-        });
-        
-        stmt.finalize((err) => {
-          if (err) {
-            console.error('Ошибка при добавлении слотов:', err);
-            reject(err);
-          } else {
-            console.log(`✅ Добавлено ${slots.length} тестовых слотов`);
-            resolve();
-          }
-        });
-      } else if (row.count === 0 && process.env.DATABASE_URL) {
-        console.log('📝 База данных пуста. На Railway слоты нужно добавлять вручную через админское меню.');
-        resolve();
+      // Не создаем тестовые слоты автоматически
+      if (row.count === 0) {
+        console.log('📝 База данных пуста. Добавьте слоты через админское меню (/admin → ➕ Добавить слот)');
       } else {
         console.log(`✅ База данных содержит ${row.count} слотов`);
-        resolve();
       }
+      resolve();
     });
   });
 }
