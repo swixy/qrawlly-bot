@@ -7,7 +7,14 @@ const addslotScene = require('./scenes/addslot');
 const { BOT_TOKEN, ADMIN_ID, REMINDER_HOURS } = require('./config');
 
 console.log('Запуск бота...');
-const bot = new Telegraf(BOT_TOKEN);
+
+// Создаем экземпляр бота с дополнительными настройками
+const bot = new Telegraf(BOT_TOKEN, {
+  telegram: {
+    // Отключаем webhook по умолчанию
+    webhookReply: false
+  }
+});
 
 // Настройка сцен
 const stage = new Scenes.Stage([bookingScene, addslotScene]);
@@ -601,15 +608,38 @@ bot.on('text', (ctx, next) => {
   return next();
 });
 
-// Запуск бота с обработкой ошибок
-bot.launch().catch((error) => {
-  console.error('Ошибка запуска бота:', error.message);
-  if (error.message.includes('409')) {
-    console.log('Бот уже запущен в другом месте. Останавливаем...');
-    process.exit(0);
+// Сброс webhook и запуск бота с polling
+async function startBot() {
+  try {
+    // Сначала сбрасываем webhook
+    await bot.telegram.deleteWebhook();
+    console.log('Webhook сброшен');
+    
+    // Запускаем бота с polling
+    await bot.launch({ polling: true });
+    console.log('Бот успешно запущен с polling');
+  } catch (error) {
+    console.error('Ошибка запуска бота:', error.message);
+    if (error.message.includes('409')) {
+      console.log('Конфликт с другим экземпляром бота. Повторная попытка через 5 секунд...');
+      setTimeout(startBot, 5000);
+    } else {
+      console.error('Критическая ошибка:', error);
+      process.exit(1);
+    }
   }
-});
+}
+
+// Запускаем бота
+startBot();
 
 // Graceful stop
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+process.once('SIGINT', () => {
+  console.log('Получен SIGINT, останавливаем бота...');
+  bot.stop('SIGINT');
+});
+
+process.once('SIGTERM', () => {
+  console.log('Получен SIGTERM, останавливаем бота...');
+  bot.stop('SIGTERM');
+});
