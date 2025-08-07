@@ -601,4 +601,15 @@ bot.on('text', (ctx, next) => {
   return next();
 });
 
-bot.launch();
+// Запуск бота с обработкой ошибок
+bot.launch().catch((error) => {
+  console.error('Ошибка запуска бота:', error.message);
+  if (error.message.includes('409')) {
+    console.log('Бот уже запущен в другом месте. Останавливаем...');
+    process.exit(0);
+  }
+});
+
+// Graceful stop
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
