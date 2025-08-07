@@ -8,6 +8,58 @@ const { BOT_TOKEN, ADMIN_ID, REMINDER_HOURS } = require('./config');
 
 console.log('Запуск бота...');
 
+// Функция инициализации базы данных
+function initDatabase() {
+  return new Promise((resolve, reject) => {
+    // Проверяем, есть ли слоты в базе
+    db.get('SELECT COUNT(*) as count FROM slots', [], (err, row) => {
+      if (err) {
+        console.error('Ошибка проверки базы данных:', err);
+        reject(err);
+        return;
+      }
+      
+      if (row.count === 0) {
+        console.log('📝 База данных пуста, добавляем тестовые слоты...');
+        
+        // Создаем слоты на следующие 7 дней
+        const today = new Date();
+        const slots = [];
+        
+        for (let i = 0; i < 7; i++) {
+          const date = new Date(today.getTime() + i * 24 * 60 * 60 * 1000);
+          const dateStr = date.toISOString().split('T')[0];
+          
+          // Добавляем слоты с 9:00 до 18:00 каждый час
+          for (let hour = 9; hour <= 18; hour++) {
+            const timeStr = `${hour.toString().padStart(2, '0')}:00`;
+            slots.push([dateStr, timeStr]);
+          }
+        }
+        
+        // Вставляем слоты
+        const stmt = db.prepare('INSERT OR IGNORE INTO slots (date, time, is_booked) VALUES (?, ?, 0)');
+        slots.forEach(([date, time]) => {
+          stmt.run([date, time]);
+        });
+        
+        stmt.finalize((err) => {
+          if (err) {
+            console.error('Ошибка при добавлении слотов:', err);
+            reject(err);
+          } else {
+            console.log(`✅ Добавлено ${slots.length} тестовых слотов`);
+            resolve();
+          }
+        });
+      } else {
+        console.log(`✅ База данных содержит ${row.count} слотов`);
+        resolve();
+      }
+    });
+  });
+}
+
 // Создаем экземпляр бота с дополнительными настройками
 const bot = new Telegraf(BOT_TOKEN, {
   telegram: {
@@ -611,7 +663,11 @@ bot.on('text', (ctx, next) => {
 // Сброс webhook и запуск бота с polling
 async function startBot() {
   try {
-    // Сначала сбрасываем webhook
+    // Сначала инициализируем базу данных
+    console.log('🔧 Инициализация базы данных...');
+    await initDatabase();
+    
+    // Сбрасываем webhook
     await bot.telegram.deleteWebhook();
     console.log('Webhook сброшен');
     
