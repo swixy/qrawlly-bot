@@ -1,6 +1,16 @@
 const { Telegraf, session, Scenes, Markup } = require('telegraf');
 const cron = require('node-cron');
-const db = require('./db');
+// Выбираем базу данных в зависимости от окружения
+let db;
+if (process.env.DATABASE_URL) {
+  // Используем PostgreSQL на Railway
+  console.log('🗄️ Используем PostgreSQL базу данных');
+  db = require('./db-postgres');
+} else {
+  // Используем SQLite локально
+  console.log('🗄️ Используем SQLite базу данных');
+  db = require('./db');
+}
 const bookingScene = require('./scenes/booking');
 const addslotScene = require('./scenes/addslot');
 
@@ -38,25 +48,24 @@ console.log(`👤 Админ ID: ${ADMIN_ID}`);
 console.log(`⏰ Напоминания за ${REMINDER_HOURS} часов`);
 
 // Функция инициализации базы данных
-function initDatabase() {
-  return new Promise((resolve, reject) => {
+async function initDatabase() {
+  try {
+    // Инициализируем таблицы
+    await db.init();
+    
     // Проверяем, есть ли слоты в базе
-    db.get('SELECT COUNT(*) as count FROM slots', [], (err, row) => {
-      if (err) {
-        console.error('Ошибка проверки базы данных:', err);
-        reject(err);
-        return;
-      }
-      
-      // Не создаем тестовые слоты автоматически
-      if (row.count === 0) {
-        console.log('📝 База данных пуста. Добавьте слоты через админское меню (/admin → ➕ Добавить слот)');
-      } else {
-        console.log(`✅ База данных содержит ${row.count} слотов`);
-      }
-      resolve();
-    });
-  });
+    const row = await db.get('SELECT COUNT(*) as count FROM slots');
+    
+    // Не создаем тестовые слоты автоматически
+    if (row.count === 0) {
+      console.log('📝 База данных пуста. Добавьте слоты через админское меню (/admin → ➕ Добавить слот)');
+    } else {
+      console.log(`✅ База данных содержит ${row.count} слотов`);
+    }
+  } catch (error) {
+    console.error('❌ Ошибка инициализации базы данных:', error);
+    throw error;
+  }
 }
 
 // Создаем экземпляр бота с дополнительными настройками
