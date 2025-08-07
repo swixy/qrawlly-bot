@@ -4,8 +4,9 @@
   "description": "Telegram bot for haircut booking",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node index.js"
+    "start": "node index-test.js",
+    "dev": "node index.js",
+    "test-db": "node test-db.js"
   },
   "keywords": [
     "telegram",
