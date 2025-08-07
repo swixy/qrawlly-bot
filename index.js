@@ -4,9 +4,38 @@ const db = require('./db');
 const bookingScene = require('./scenes/booking');
 const addslotScene = require('./scenes/addslot');
 
-const { BOT_TOKEN, ADMIN_ID, REMINDER_HOURS } = require('./config');
+// Конфигурация - приоритет переменным окружения, затем config.js
+let config;
+try {
+  config = require('./config');
+} catch (error) {
+  // Если config.js не найден, используем переменные окружения
+  config = {
+    BOT_TOKEN: process.env.BOT_TOKEN,
+    ADMIN_ID: parseInt(process.env.ADMIN_ID),
+    REMINDER_HOURS: parseInt(process.env.REMINDER_HOURS) || 2
+  };
+}
+
+const { BOT_TOKEN, ADMIN_ID, REMINDER_HOURS } = config;
+
+// Проверка обязательных переменных
+if (!BOT_TOKEN) {
+  console.error('❌ Ошибка: BOT_TOKEN не найден!');
+  console.error('Добавьте BOT_TOKEN в config.js или переменные окружения');
+  process.exit(1);
+}
+
+if (!ADMIN_ID) {
+  console.error('❌ Ошибка: ADMIN_ID не найден!');
+  console.error('Добавьте ADMIN_ID в config.js или переменные окружения');
+  process.exit(1);
+}
 
 console.log('Запуск бота...');
+console.log(`🤖 Токен бота: ${BOT_TOKEN.substring(0, 10)}...`);
+console.log(`👤 Админ ID: ${ADMIN_ID}`);
+console.log(`⏰ Напоминания за ${REMINDER_HOURS} часов`);
 
 // Функция инициализации базы данных
 function initDatabase() {
