@@ -46,33 +46,57 @@ async function initTables() {
 // Функции для работы с базой данных (совместимые с SQLite API)
 const db = {
   // Получить все записи
-  all: (query, params = []) => {
-    return new Promise((resolve, reject) => {
+  all: (query, params = [], callback) => {
+    if (callback) {
+      // SQLite-style callback
       pool.query(query, params, (err, result) => {
-        if (err) reject(err);
-        else resolve(result.rows);
+        callback(err, result.rows);
       });
-    });
+    } else {
+      // Promise-style
+      return new Promise((resolve, reject) => {
+        pool.query(query, params, (err, result) => {
+          if (err) reject(err);
+          else resolve(result.rows);
+        });
+      });
+    }
   },
 
   // Получить одну запись
-  get: (query, params = []) => {
-    return new Promise((resolve, reject) => {
+  get: (query, params = [], callback) => {
+    if (callback) {
+      // SQLite-style callback
       pool.query(query, params, (err, result) => {
-        if (err) reject(err);
-        else resolve(result.rows[0]);
+        callback(err, result.rows[0]);
       });
-    });
+    } else {
+      // Promise-style
+      return new Promise((resolve, reject) => {
+        pool.query(query, params, (err, result) => {
+          if (err) reject(err);
+          else resolve(result.rows[0]);
+        });
+      });
+    }
   },
 
   // Выполнить запрос без возврата данных
-  run: (query, params = []) => {
-    return new Promise((resolve, reject) => {
+  run: (query, params = [], callback) => {
+    if (callback) {
+      // SQLite-style callback
       pool.query(query, params, (err, result) => {
-        if (err) reject(err);
-        else resolve(result);
+        callback(err, result);
       });
-    });
+    } else {
+      // Promise-style
+      return new Promise((resolve, reject) => {
+        pool.query(query, params, (err, result) => {
+          if (err) reject(err);
+          else resolve(result);
+        });
+      });
+    }
   },
 
   // Подготовленный запрос (для совместимости)
