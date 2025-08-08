@@ -1,7 +1,7 @@
 const { Markup } = require('telegraf');
 const { WizardScene } = require('telegraf/scenes');
 const db = require('../db');
-const { logCtx, safeStr } = require('../logger');
+const { logCtx } = require('../logger');
 
 function formatDateDMY(dateStr) {
   if (!dateStr) return '';
