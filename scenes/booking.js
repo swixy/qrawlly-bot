@@ -129,8 +129,7 @@ const bookingScene = new WizardScene(
     const availableDates = await getAvailableDates();
     const calendarKeyboard = createCalendarKeyboard(year, month, availableDates);
     
-    // Показываем календарь с кнопками возврата в главное меню и помощи
-    await ctx.reply('Выберите дату:', Markup.keyboard([['🏠 Главное меню', 'ℹ️ Помощь']]).resize());
+    // Показываем только календарь (без дублирующего сообщения)
     await ctx.reply('Выберите дату:', calendarKeyboard);
     ctx.wizard.state.data = {};
     return ctx.wizard.next();
@@ -172,7 +171,7 @@ const bookingScene = new WizardScene(
       return;
     }
     
-
+    
     
     // Обработка кнопки "Назад"
     if (action === 'back_to_main') {
