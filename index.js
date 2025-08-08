@@ -664,15 +664,42 @@ bot.hears('📆 Записи на завтра', (ctx) => {
 
 
 
+function normalizeDateYMD(dateVal) {
+  if (!dateVal) return '';
+  if (typeof dateVal === 'string') {
+    const s = dateVal.includes('T') ? dateVal.split('T')[0] : dateVal;
+    return s;
+  }
+  if (dateVal instanceof Date) {
+    const y = dateVal.getFullYear();
+    const m = String(dateVal.getMonth() + 1).padStart(2, '0');
+    const d = String(dateVal.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  // Fallback
+  try {
+    const d = new Date(dateVal);
+    if (!isNaN(d)) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${dd}`;
+    }
+  } catch {}
+  return String(dateVal);
+}
+
 function formatDateDMY(dateStr) {
-  if (!dateStr) return '';
-  const [y, m, d] = dateStr.split('-');
+  const ymd = normalizeDateYMD(dateStr);
+  if (!ymd) return '';
+  const [y, m, d] = ymd.split('-');
   return `${d}.${m}.${y}`;
 }
 
 function getWeekdayFullRu(dateStr) {
   const days = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
-  const [y, m, d] = dateStr.split('-');
+  const ymd = normalizeDateYMD(dateStr);
+  const [y, m, d] = ymd.split('-');
   const date = new Date(`${y}-${m}-${d}`);
   return days[date.getDay()];
 }
