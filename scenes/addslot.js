@@ -140,6 +140,13 @@ const addslotScene = new WizardScene(
   },
   // Шаг 2: обработка выбора даты
   async (ctx) => {
+    // Дополнительно позволим выйти текстом
+    const text = ctx.message?.text;
+    if (text === '❌ Отмена' || text === 'Отмена') {
+      await ctx.reply('Добавление слотов отменено.');
+      return ctx.scene.leave();
+    }
+
     if (!ctx.callbackQuery) return;
     
     const action = ctx.callbackQuery.data;
@@ -158,8 +165,6 @@ const addslotScene = new WizardScene(
       }
       return;
     }
-    
-
     
     // Обработка кнопки "Назад"
     if (action === 'back_to_main') {
@@ -189,30 +194,47 @@ const addslotScene = new WizardScene(
             message += `📅 Уже забронированы: ${bookedSlots.join(', ')}\n`;
           }
           if (freeSlots.length > 0) {
-            message += `🟢 Активные слоты: ${freeSlots.join(', ')}\n`;
+            message += `🟢 Свободные слоты: ${freeSlots.join(', ')}\n`;
           }
           message += `\n`;
         } else {
           message += `📝 На эту дату пока нет слотов\n\n`;
         }
         
-        message += `Введите одно или несколько времён через пробел (формат HH:MM):\n\nПример: 10:00 12:30 15:45`;
+        message += `Введите одно или несколько времён через пробел (формат HH:MM) или нажмите «❌ Отмена».\n\nПример: 10:00 12:30 15:45`;
         
         ctx.editMessageText(message);
+        // Показать клавиатуру для выхода/возврата во время ввода времени
+        ctx.reply('Ожидаю время(ена) слотов:', Markup.keyboard([[
+          '⬅️ Назад к выбору даты', '❌ Отмена'
+        ]]).resize());
         return ctx.wizard.next();
       });
     }
   },
   // Шаг 3: ввод времени
   async (ctx) => {
-    const timeInput = ctx.message?.text?.trim();
-    if (!timeInput) {
-      return ctx.reply('Пожалуйста, введите время.');
+    const text = ctx.message?.text?.trim();
+
+    // Обработка выхода/возврата
+    if (text === '❌ Отмена' || text === 'Отмена') {
+      await ctx.reply('Добавление слотов отменено.', Markup.removeKeyboard());
+      return ctx.scene.leave();
+    }
+    if (text === '⬅️ Назад к выбору даты' || text === 'Назад') {
+      await ctx.reply('Возврат к выбору даты...', Markup.removeKeyboard());
+      await ctx.scene.leave();
+      await ctx.scene.enter('addslot');
+      return;
     }
 
-    const times = timeInput.split(' ').filter(t => /^\d{2}:\d{2}$/.test(t));
+    if (!text) {
+      return ctx.reply('Пожалуйста, введите время или нажмите «❌ Отмена».');
+    }
+
+    const times = text.split(' ').filter(t => /^\d{2}:\d{2}$/.test(t));
     if (times.length === 0) {
-      return ctx.reply('Неверный формат. Введите хотя бы одно время в формате HH:MM.');
+      return ctx.reply('Неверный формат. Введите хотя бы одно время в формате HH:MM или нажмите «❌ Отмена».');
     }
 
     const { date } = ctx.wizard.state.data;
@@ -220,7 +242,7 @@ const addslotScene = new WizardScene(
     // Проверяем существующие слоты на эту дату
     db.all(`SELECT time FROM slots WHERE date=?`, [date], (err, existingSlots) => {
       if (err) {
-        return ctx.reply('Ошибка при проверке существующих слотов.');
+        return ctx.reply('Ошибка при проверке существующих слотов.', Markup.removeKeyboard());
       }
       
       const existingTimes = existingSlots.map(slot => slot.time);
@@ -240,7 +262,7 @@ const addslotScene = new WizardScene(
       if (newTimes.length === 0) {
         const slotText = duplicateTimes.length === 1 ? 'Указанный слот' : 'Указанные слоты';
         const timeText = duplicateTimes.length === 1 ? 'время' : 'времена';
-        return ctx.reply(`${slotText} уже существуют. Введите другое ${timeText}.`);
+        return ctx.reply(`${slotText} уже существуют. Введите другое ${timeText} или нажмите «❌ Отмена».`);
       }
       
       ctx.wizard.state.data.times = newTimes; // Сохраняем только новые слоты
@@ -292,7 +314,7 @@ const addslotScene = new WizardScene(
             message += `📅 Забронированы: ${bookedSlots.join(', ')}\n`;
           }
           if (freeSlots.length > 0) {
-            message += `🟢 Свободны: ${freeSlots.join(', ')}\n`;
+            message += `🟢 Свободные слоты: ${freeSlots.join(', ')}\n`;
           }
           message += `\nВсего слотов: ${rows.length}`;
         }
