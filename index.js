@@ -608,13 +608,14 @@ bot.hears('📊 Статистика', (ctx) => {
 bot.hears('🟢 Свободные слоты', (ctx) => {
     if (ctx.from.id !== ADMIN_ID) return;
     db.all(`SELECT date, time FROM slots WHERE is_booked=0 ORDER BY date, time`, [], (err, rows) => {
-  if (err) {
-    console.error('Ошибка запроса свободных слотов:', err);
-    return ctx.reply('Ошибка при получении свободных слотов.');
-  }
-  if (!rows || rows.length === 0) return ctx.reply('Свободных слотов нет.');
-  // Группируем слоты по дням
-  const groupedByDate = {};
+      if (err) {
+        console.error('Ошибка запроса свободных слотов:', err);
+        return ctx.reply('Ошибка при получении свободных слотов.');
+      }
+      if (!rows || rows.length === 0) return ctx.reply('Свободных слотов нет.');
+
+      // Группируем слоты по дням
+      const groupedByDate = {};
       rows.forEach(r => {
         const dateKey = `${formatDateDMY(r.date)} (${getWeekdayFullRu(r.date)})`;
         if (!groupedByDate[dateKey]) {
@@ -622,13 +623,22 @@ bot.hears('🟢 Свободные слоты', (ctx) => {
         }
         groupedByDate[dateKey].push(r.time);
       });
-      
-      const list = Object.keys(groupedByDate).sort().map(date => {
-        const timesList = groupedByDate[date].sort().join(', ');
-        return `${date}:\n  ${timesList}`;
-      }).join('\n\n');
-      
-      ctx.reply('Свободные слоты:\n' + list);
+
+      // Строим инлайн-клавиатуру: заголовок дня и кнопки времени без действий
+      const buttons = [];
+      Object.keys(groupedByDate).sort().forEach(date => {
+        buttons.push([Markup.button.callback(`📅 ${date}`, 'ignore')]);
+        const times = groupedByDate[date].sort().map(t => Markup.button.callback(t, 'ignore'));
+        for (let i = 0; i < times.length; i += 3) {
+          buttons.push(times.slice(i, i + 3));
+        }
+        buttons.push([]);
+      });
+      if (buttons.length > 0 && buttons[buttons.length - 1].length === 0) {
+        buttons.pop();
+      }
+
+      ctx.reply('Свободные слоты:', Markup.inlineKeyboard(buttons));
     });
   });
 
