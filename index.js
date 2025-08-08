@@ -94,6 +94,11 @@ const bot = new Telegraf(BOT_TOKEN, {
   }
 });
 
+// Глобальный обработчик ошибок Telegraf
+bot.catch((err, ctx) => {
+  console.error('Telegraf error for', ctx.updateType, err);
+});
+
 // Настройка сцен
 const stage = new Scenes.Stage([bookingScene, addslotScene]);
 bot.use(session());
@@ -114,7 +119,11 @@ bot.hears('📋 Мои записи', (ctx) => {
     `SELECT s.date, s.time FROM bookings b JOIN slots s ON b.slot_id=s.id WHERE b.user_id=? AND b.status='confirmed' ORDER BY s.date, s.time`,
     [ctx.from.id],
     (err, rows) => {
-      if (rows.length === 0) return ctx.reply('У вас нет записей.');
+      if (err) {
+        console.error('Ошибка запроса "Мои записи":', err);
+        return ctx.reply('Произошла ошибка. Попробуйте позже.');
+      }
+      if (!rows || rows.length === 0) return ctx.reply('У вас нет записей.');
       const list = rows.map(r => `📅 ${formatDateDMY(r.date)} ⏰ ${r.time}`).join('\n');
       ctx.reply(`Ваши записи:\n${list}`);
     }
@@ -141,6 +150,10 @@ cron.schedule('0 * * * *', () => {
   const timeStr = reminderTime.toTimeString().slice(0, 5);
   db.all(`SELECT b.user_id, s.date, s.time FROM bookings b JOIN slots s ON b.slot_id=s.id WHERE s.date=? AND s.time=?`,
     [dateStr, timeStr], (err, rows) => {
+      if (err) {
+        console.error('Ошибка запроса напоминаний:', err);
+        return;
+      }
       rows.forEach(r => {
         bot.telegram.sendMessage(r.user_id, `Напоминание! Ваша стрижка ${r.date} в ${r.time}`);
       });
@@ -374,10 +387,14 @@ bot.hears('📆 Записи на месяц', (ctx) => {
 bot.hears('❌ Удалить слот', (ctx) => {
   if (ctx.from.id !== ADMIN_ID) return;
   db.all(`SELECT id, date, time FROM slots ORDER BY date, time`, [], (err, rows) => {
-    if (!rows || rows.length === 0) return ctx.reply('Слотов нет.');
-    
-    // Группируем слоты по дням
-    const groupedByDate = {};
+  if (err) {
+    console.error('Ошибка получения слотов для удаления:', err);
+    return ctx.reply('Ошибка при получении слотов.');
+  }
+  if (!rows || rows.length === 0) return ctx.reply('Слотов нет.');
+  
+  // Группируем слоты по дням
+  const groupedByDate = {};
     rows.forEach(r => {
       const dateKey = `${formatDateDMY(r.date)} (${getWeekdayFullRu(r.date)})`;
       if (!groupedByDate[dateKey]) {
@@ -569,9 +586,13 @@ bot.hears('📊 Статистика', (ctx) => {
 bot.hears('🟢 Свободные слоты', (ctx) => {
     if (ctx.from.id !== ADMIN_ID) return;
     db.all(`SELECT date, time FROM slots WHERE is_booked=0 ORDER BY date, time`, [], (err, rows) => {
-      if (!rows || rows.length === 0) return ctx.reply('Свободных слотов нет.');
-      // Группируем слоты по дням
-      const groupedByDate = {};
+  if (err) {
+    console.error('Ошибка запроса свободных слотов:', err);
+    return ctx.reply('Ошибка при получении свободных слотов.');
+  }
+  if (!rows || rows.length === 0) return ctx.reply('Свободных слотов нет.');
+  // Группируем слоты по дням
+  const groupedByDate = {};
       rows.forEach(r => {
         const dateKey = `${formatDateDMY(r.date)} (${getWeekdayFullRu(r.date)})`;
         if (!groupedByDate[dateKey]) {
