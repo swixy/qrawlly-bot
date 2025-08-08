@@ -16,6 +16,16 @@ function getWeekdayFullRu(dateStr) {
   return days[date.getDay()];
 }
 
+function showAdminMenu(ctx) {
+  return ctx.reply('Админ-меню:', Markup.keyboard([
+    ['📅 Записи на сегодня', '🟢 Свободные слоты'],
+    ['📆 Записи на завтра', '➕ Добавить слот'],
+    ['📅 Записи на неделю', '❌ Удалить слот'],
+    ['📆 Записи на месяц', '📊 Статистика'],
+    ['📢 Рассылка']
+  ]).resize());
+}
+
 // Функция для создания календаря (аналогично booking.js)
 function createCalendarKeyboard(year, month, existingDates = []) {
   // Проверяем корректность параметров
@@ -144,6 +154,7 @@ const addslotScene = new WizardScene(
     const text = ctx.message?.text;
     if (text === '❌ Отмена' || text === 'Отмена') {
       await ctx.reply('Добавление слотов отменено.');
+      await showAdminMenu(ctx);
       return ctx.scene.leave();
     }
 
@@ -169,6 +180,7 @@ const addslotScene = new WizardScene(
     // Обработка кнопки "Назад"
     if (action === 'back_to_main') {
       await ctx.editMessageText('Добавление слотов отменено.');
+      await showAdminMenu(ctx);
       return ctx.scene.leave();
     }
     
@@ -219,13 +231,13 @@ const addslotScene = new WizardScene(
     // Обработка выхода/возврата
     if (text === '❌ Отмена' || text === 'Отмена') {
       await ctx.reply('Добавление слотов отменено.', Markup.removeKeyboard());
+      await showAdminMenu(ctx);
       return ctx.scene.leave();
     }
     if (text === '⬅️ Назад к выбору даты' || text === 'Назад') {
       await ctx.reply('Возврат к выбору даты...', Markup.removeKeyboard());
-      await ctx.scene.leave();
-      await ctx.scene.enter('addslot');
-      return;
+      await showAdminMenu(ctx);
+      return ctx.scene.leave();
     }
 
     if (!text) {
@@ -285,6 +297,7 @@ const addslotScene = new WizardScene(
     if (action === 'cancel') {
       await ctx.answerCbQuery();
       await ctx.editMessageText('Добавление отменено.');
+      await showAdminMenu(ctx);
       return ctx.scene.leave();
     }
 
@@ -320,6 +333,7 @@ const addslotScene = new WizardScene(
         }
         
         ctx.editMessageText(message);
+        showAdminMenu(ctx);
         return ctx.scene.leave();
       });
     }
