@@ -28,16 +28,54 @@ function toPgPlaceholders(query, params) {
   return { text, values: params };
 }
 
-// Приводим результат к совместимому формату (например, boolean -> 0/1)
+function toYMD(val) {
+  if (!val) return '';
+  if (val instanceof Date) {
+    const y = val.getFullYear();
+    const m = String(val.getMonth() + 1).padStart(2, '0');
+    const d = String(val.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  if (typeof val === 'string') {
+    return val.includes('T') ? val.split('T')[0] : val;
+  }
+  try {
+    const d = new Date(val);
+    if (!isNaN(d)) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${dd}`;
+    }
+  } catch {}
+  return String(val);
+}
+
+function toHM(val) {
+  if (!val) return '';
+  if (typeof val === 'string') {
+    // 'HH:MM:SS' -> 'HH:MM'
+    if (val.length >= 5) return val.slice(0, 5);
+    return val;
+  }
+  return String(val);
+}
+
+// Приводим результат к совместимому формату (например, boolean -> 0/1, date/time -> строки)
 function normalizeRows(rows) {
   if (!rows) return rows;
   return rows.map(row => {
     const copy = { ...row };
     if (Object.prototype.hasOwnProperty.call(copy, 'is_booked')) {
-      // В SQLite is_booked INTEGER(0/1); в PG BOOLEAN(true/false)
       if (typeof copy.is_booked === 'boolean') {
         copy.is_booked = copy.is_booked ? 1 : 0;
       }
+    }
+    if (Object.prototype.hasOwnProperty.call(copy, 'date')) {
+      copy.date = toYMD(copy.date);
+    }
+    if (Object.prototype.hasOwnProperty.call(copy, 'time')) {
+      copy.time = toHM(copy.time);
     }
     return copy;
   });
