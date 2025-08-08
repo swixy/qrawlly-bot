@@ -1,5 +1,11 @@
 const { Telegraf, session, Scenes, Markup } = require('telegraf');
 const cron = require('node-cron');
+
+if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL) {
+  console.error('❌ DATABASE_URL is required in production. Set it in Railway Variables or add a Postgres add-on.');
+  process.exit(1);
+}
+
 // Выбираем базу данных в зависимости от окружения
 let db;
 if (process.env.DATABASE_URL) {
