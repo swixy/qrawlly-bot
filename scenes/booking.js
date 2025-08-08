@@ -1,6 +1,7 @@
 const { Markup } = require('telegraf');
 const { WizardScene } = require('telegraf/scenes');
 const db = require('../db');
+const { logCtx, safeStr } = require('../logger');
 
 function formatDateDMY(dateStr) {
   if (!dateStr) return '';
@@ -282,8 +283,10 @@ bookingScene.action('confirm', async (ctx) => {
   await ctx.answerCbQuery();
   const { date, time } = ctx.wizard.state.data;
   const user = ctx.from;
+  logCtx(ctx, 'booking_confirm_click', { date, time });
   db.get(`SELECT id FROM slots WHERE date=? AND time=? AND is_booked=0`, [date, time], (err, slot) => {
     if (!slot) {
+      logCtx(ctx, 'booking_confirm_slot_taken', { date, time });
       ctx.editMessageText('Этот слот уже занят.');
       ctx.reply('Выберите действие:', Markup.keyboard([
         ['✂️ Записаться на стрижку'],
@@ -295,6 +298,7 @@ bookingScene.action('confirm', async (ctx) => {
     db.run(`UPDATE slots SET is_booked=1 WHERE id=?`, [slot.id]);
     db.run(`INSERT INTO bookings (user_id, username, full_name, slot_id, created_at, status) VALUES (?,?,?,?,datetime('now'),'confirmed')`,
       [user.id, user.username || '', user.first_name || '', slot.id]);
+    logCtx(ctx, 'booking_confirm_success', { slotId: slot.id, date, time });
     ctx.editMessageText(`✅ Запись подтверждена!\n\n📅 Дата: ${formatDateDMY(date)} (${getWeekdayFullRu(date)})\n⏰ Время: ${time}`);
     ctx.telegram.sendMessage(process.env.ADMIN_ID || require('../config').ADMIN_ID,
       `Новая запись: ${user.first_name} @${user.username}\n${formatDateDMY(date)} ${time}`);
@@ -309,6 +313,7 @@ bookingScene.action('confirm', async (ctx) => {
 
 bookingScene.action('cancel', async (ctx) => {
   await ctx.answerCbQuery();
+  logCtx(ctx, 'booking_cancel_click');
   await ctx.editMessageText('Запись отменена.');
   await ctx.reply('Выберите действие:', Markup.keyboard([
     ['✂️ Записаться на стрижку'],

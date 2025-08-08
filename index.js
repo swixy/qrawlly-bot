@@ -1,5 +1,6 @@
 const { Telegraf, session, Scenes, Markup } = require('telegraf');
 const cron = require('node-cron');
+const { logCtx, safeStr } = require('./logger');
 
 if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL) {
   console.error('❌ DATABASE_URL is required in production. Set it in Railway Variables or add a Postgres add-on.');
@@ -94,6 +95,14 @@ const bot = new Telegraf(BOT_TOKEN, {
   }
 });
 
+// Global logging middleware
+bot.use((ctx, next) => {
+  const text = ctx.message?.text;
+  const data = ctx.callbackQuery?.data;
+  logCtx(ctx, 'update', { text: safeStr(text), action: safeStr(data) });
+  return next();
+});
+
 // Глобальный обработчик ошибок Telegraf
 bot.catch((err, ctx) => {
   console.error('Telegraf error for', ctx.updateType, err);
@@ -113,19 +122,27 @@ bot.start((ctx) => {
   ]).resize());
 });
 
-bot.hears('✂️ Записаться на стрижку', (ctx) => ctx.scene.enter('booking'));
+bot.hears('✂️ Записаться на стрижку', (ctx) => {
+  logCtx(ctx, 'enter_booking');
+  return ctx.scene.enter('booking');
+});
 bot.hears('📋 Мои записи', (ctx) => {
+  logCtx(ctx, 'my_bookings_request');
   db.all(
     `SELECT s.date, s.time FROM bookings b JOIN slots s ON b.slot_id=s.id WHERE b.user_id=? AND b.status='confirmed' ORDER BY s.date, s.time`,
     [ctx.from.id],
     (err, rows) => {
       if (err) {
-        console.error('Ошибка запроса "Мои записи":', err);
+        logCtx(ctx, 'my_bookings_error', { error: safeStr(err.message) });
         return ctx.reply('Произошла ошибка. Попробуйте позже.');
       }
-      if (!rows || rows.length === 0) return ctx.reply('У вас нет записей.');
+      if (!rows || rows.length === 0) {
+        logCtx(ctx, 'my_bookings_empty');
+        return ctx.reply('У вас нет записей.');
+      }
       const list = rows.map(r => `📅 ${formatDateDMY(r.date)} ⏰ ${r.time}`).join('\n');
       ctx.reply(`Ваши записи:\n${list}`);
+      logCtx(ctx, 'my_bookings_success', { count: rows.length });
     }
   );
 });
@@ -161,11 +178,13 @@ cron.schedule('0 * * * *', () => {
 });
 
 bot.hears('❌ Отменить запись', (ctx) => {
+  logCtx(ctx, 'cancel_request_list');
     db.all(
       `SELECT b.id, s.date, s.time FROM bookings b JOIN slots s ON b.slot_id=s.id WHERE b.user_id=? AND b.status='confirmed' ORDER BY s.date, s.time`,
       [ctx.from.id],
       (err, rows) => {
         if (!rows || rows.length === 0) {
+          logCtx(ctx, 'cancel_request_empty');
           return ctx.reply('У вас нет активных записей для отмены.');
         }
         // Показываем список записей для отмены
@@ -180,11 +199,13 @@ bot.hears('❌ Отменить запись', (ctx) => {
 // Обработка нажатия на inline-кнопку отмены
 bot.action(/cancel_(\d+)/, (ctx) => {
   const bookingId = ctx.match[1];
+  logCtx(ctx, 'cancel_click', { bookingId });
   db.get(
     `SELECT slot_id, date, time FROM bookings b JOIN slots s ON b.slot_id=s.id WHERE b.id=? AND b.user_id=? AND b.status='confirmed'`,
     [bookingId, ctx.from.id],
     (err, booking) => {
       if (!booking) {
+        logCtx(ctx, 'cancel_not_found', { bookingId });
         ctx.answerCbQuery();
         return ctx.editMessageText('Запись не найдена или уже отменена.');
       }
@@ -192,6 +213,7 @@ bot.action(/cancel_(\d+)/, (ctx) => {
       db.run(`UPDATE slots SET is_booked=0 WHERE id=?`, [booking.slot_id]);
       ctx.answerCbQuery();
       ctx.editMessageText('Запись отменена.');
+      logCtx(ctx, 'cancel_success', { bookingId, slotId: booking.slot_id });
       ctx.reply(
         `❌ Запись отменена!\n\n📅 Дата: ${formatDateDMY(booking.date)} (${getWeekdayFullRu(booking.date)})\n⏰ Время: ${booking.time}\n\nВы можете выбрать новую запись.`,
         Markup.keyboard([

@@ -2,6 +2,7 @@
 const { Markup } = require('telegraf');
 const { WizardScene } = require('telegraf/scenes');
 const db = require('../db');
+const { logCtx } = require('../logger');
 
 function formatDateDMY(dateStr) {
   if (!dateStr) return '';
@@ -136,6 +137,7 @@ const addslotScene = new WizardScene(
   'addslot',
   // Шаг 1: выбор даты через календарь
   async (ctx) => {
+    logCtx(ctx, 'admin_addslot_enter');
     const today = new Date();
     const year = today.getFullYear();
     const month = today.getMonth();
@@ -153,6 +155,7 @@ const addslotScene = new WizardScene(
     // Дополнительно позволим выйти текстом
     const text = ctx.message?.text;
     if (text === '❌ Отмена' || text === 'Отмена') {
+      logCtx(ctx, 'admin_addslot_cancel_on_date');
       await ctx.reply('Добавление слотов отменено.');
       await showAdminMenu(ctx);
       return ctx.scene.leave();
@@ -179,6 +182,7 @@ const addslotScene = new WizardScene(
     
     // Обработка кнопки "Назад"
     if (action === 'back_to_main') {
+      logCtx(ctx, 'admin_addslot_back_from_date');
       await ctx.editMessageText('Добавление слотов отменено.');
       await showAdminMenu(ctx);
       return ctx.scene.leave();
@@ -193,6 +197,7 @@ const addslotScene = new WizardScene(
     if (action.startsWith('date_')) {
       const dateIso = action.replace('date_', '');
       ctx.wizard.state.data.date = dateIso;
+      logCtx(ctx, 'admin_addslot_date_selected', { date: dateIso });
       
       // Получаем существующие слоты на эту дату
       db.all(`SELECT time, is_booked FROM slots WHERE date=? ORDER BY time`, [dateIso], (err, rows) => {
@@ -230,11 +235,13 @@ const addslotScene = new WizardScene(
 
     // Обработка выхода/возврата
     if (text === '❌ Отмена' || text === 'Отмена') {
+      logCtx(ctx, 'admin_addslot_cancel_on_time');
       await ctx.reply('Добавление слотов отменено.', Markup.removeKeyboard());
       await showAdminMenu(ctx);
       return ctx.scene.leave();
     }
     if (text === '⬅️ Назад к выбору даты' || text === 'Назад') {
+      logCtx(ctx, 'admin_addslot_back_to_date');
       await ctx.reply('Возврат к выбору даты...', Markup.removeKeyboard());
       await ctx.scene.leave();
       await ctx.scene.enter('addslot');
@@ -279,6 +286,7 @@ const addslotScene = new WizardScene(
       }
       
       ctx.wizard.state.data.times = newTimes; // Сохраняем только новые слоты
+      logCtx(ctx, 'admin_addslot_times_input', { date, times: newTimes });
       
       message += `\nПодтверждаете?`;
       
@@ -297,6 +305,7 @@ const addslotScene = new WizardScene(
 
     if (action === 'cancel') {
       await ctx.answerCbQuery();
+      logCtx(ctx, 'admin_addslot_cancel_on_confirm');
       await ctx.editMessageText('Добавление отменено.');
       await showAdminMenu(ctx);
       return ctx.scene.leave();
@@ -314,6 +323,8 @@ const addslotScene = new WizardScene(
           });
         });
       }
+
+      logCtx(ctx, 'admin_addslot_confirm', { date, times, added });
 
       // Получаем все слоты на эту дату после добавления
       db.all(`SELECT time, is_booked FROM slots WHERE date=? ORDER BY time`, [date], (err, rows) => {
