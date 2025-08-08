@@ -6,6 +6,16 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
+// Преобразование плейсхолдеров из SQLite-стиля `?` в PostgreSQL `$1..$n`
+function toPgPlaceholders(query, params) {
+  if (!Array.isArray(params) || params.length === 0) {
+    return { text: query, values: [] };
+  }
+  let index = 0;
+  const text = query.replace(/\?/g, () => `$${++index}`);
+  return { text, values: params };
+}
+
 // Инициализация таблиц
 async function initTables() {
   const client = await pool.connect();
@@ -47,15 +57,16 @@ async function initTables() {
 const db = {
   // Получить все записи
   all: (query, params = [], callback) => {
+    const { text, values } = toPgPlaceholders(query, params);
     if (callback) {
       // SQLite-style callback
-      pool.query(query, params, (err, result) => {
-        callback(err, result.rows);
+      pool.query(text, values, (err, result) => {
+        callback(err, result ? result.rows : undefined);
       });
     } else {
       // Promise-style
       return new Promise((resolve, reject) => {
-        pool.query(query, params, (err, result) => {
+        pool.query(text, values, (err, result) => {
           if (err) reject(err);
           else resolve(result.rows);
         });
@@ -65,15 +76,16 @@ const db = {
 
   // Получить одну запись
   get: (query, params = [], callback) => {
+    const { text, values } = toPgPlaceholders(query, params);
     if (callback) {
       // SQLite-style callback
-      pool.query(query, params, (err, result) => {
-        callback(err, result.rows[0]);
+      pool.query(text, values, (err, result) => {
+        callback(err, result ? result.rows[0] : undefined);
       });
     } else {
       // Promise-style
       return new Promise((resolve, reject) => {
-        pool.query(query, params, (err, result) => {
+        pool.query(text, values, (err, result) => {
           if (err) reject(err);
           else resolve(result.rows[0]);
         });
@@ -83,15 +95,16 @@ const db = {
 
   // Выполнить запрос без возврата данных
   run: (query, params = [], callback) => {
+    const { text, values } = toPgPlaceholders(query, params);
     if (callback) {
       // SQLite-style callback
-      pool.query(query, params, (err, result) => {
+      pool.query(text, values, (err, result) => {
         callback(err, result);
       });
     } else {
       // Promise-style
       return new Promise((resolve, reject) => {
-        pool.query(query, params, (err, result) => {
+        pool.query(text, values, (err, result) => {
           if (err) reject(err);
           else resolve(result);
         });
@@ -102,7 +115,10 @@ const db = {
   // Подготовленный запрос (для совместимости)
   prepare: (query) => {
     return {
-      run: (params) => pool.query(query, params),
+      run: (params) => {
+        const { text, values } = toPgPlaceholders(query, params);
+        return pool.query(text, values);
+      },
       finalize: (callback) => callback && callback()
     };
   },
