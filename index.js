@@ -189,7 +189,7 @@ bot.action(/cancel_(\d+)/, (ctx) => {
       );
       // Уведомление админу
       ctx.telegram.sendMessage(
-        require('./config').ADMIN_ID,
+        ADMIN_ID,
         `❌ Отмена записи!\n\n👤 Пользователь: @${ctx.from.username || ''} (${ctx.from.first_name || ''})\n📅 Дата: ${formatDateDMY(booking.date)} (${getWeekdayFullRu(booking.date)})\n⏰ Время: ${booking.time}`
       );
     }
