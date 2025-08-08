@@ -231,6 +231,11 @@ bot.action(/cancel_(\d+)/, (ctx) => {
   );
 });
 
+// No-op for read-only inline buttons
+bot.action('ignore', (ctx) => {
+  try { ctx.answerCbQuery(); } catch {}
+});
+
 // === Админ-команды ===
 
 // Показать все записи на сегодня
