@@ -129,7 +129,8 @@ const bookingScene = new WizardScene(
     const availableDates = await getAvailableDates();
     const calendarKeyboard = createCalendarKeyboard(year, month, availableDates);
     
-    // Показываем только календарь (без дублирующего сообщения)
+    // Показываем сообщение с клавиатурой и затем календарь (как было ранее)
+    await ctx.reply('Выберите дату:', Markup.keyboard([['🏠 Главное меню', 'ℹ️ Помощь']]).resize());
     await ctx.reply('Выберите дату:', calendarKeyboard);
     ctx.wizard.state.data = {};
     return ctx.wizard.next();
