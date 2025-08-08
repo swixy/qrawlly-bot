@@ -2,6 +2,7 @@ const { Markup } = require('telegraf');
 const { WizardScene } = require('telegraf/scenes');
 const db = require('../db');
 const { logCtx } = require('../logger');
+const { getAdmins } = require('../admins');
 
 function formatDateDMY(dateStr) {
   if (!dateStr) return '';
@@ -300,8 +301,10 @@ bookingScene.action('confirm', async (ctx) => {
       [user.id, user.username || '', user.first_name || '', slot.id]);
     logCtx(ctx, 'booking_confirm_success', { slotId: slot.id, date, time });
     ctx.editMessageText(`✅ Запись подтверждена!\n\n📅 Дата: ${formatDateDMY(date)} (${getWeekdayFullRu(date)})\n⏰ Время: ${time}`);
-    ctx.telegram.sendMessage(process.env.ADMIN_ID || require('../config').ADMIN_ID,
-      `Новая запись: ${user.first_name} @${user.username}\n${formatDateDMY(date)} ${time}`);
+    const ADMINS = getAdmins();
+    ADMINS.forEach((adminId) => ctx.telegram.sendMessage(adminId,
+      `Новая запись: ${user.first_name} @${user.username}\n${formatDateDMY(date)} ${time}`
+    ));
     ctx.reply('Выберите действие:', Markup.keyboard([
       ['✂️ Записаться на стрижку'],
       ['📋 Мои записи', '❌ Отменить запись'],

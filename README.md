@@ -57,7 +57,8 @@ node index.js
 ### Переменные окружения:
 ```bash
 BOT_TOKEN=ваш_токен_бота
-ADMIN_ID=ваш_telegram_id
+# Несколько админов через запятую
+ADMIN_IDS=123,456
 REMINDER_HOURS=2
 ```
 
@@ -66,7 +67,7 @@ REMINDER_HOURS=2
 2. Добавьте переменные:
    ```
    BOT_TOKEN=ваш_токен_бота
-   ADMIN_ID=ваш_telegram_id
+   ADMIN_IDS=123,456
    REMINDER_HOURS=2
    NODE_ENV=production
    ```

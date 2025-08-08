@@ -1,6 +1,7 @@
 const { Telegraf, session, Scenes, Markup } = require('telegraf');
 const cron = require('node-cron');
 const { logCtx, safeStr } = require('./logger');
+const { getAdmins, isAdmin } = require('./admins');
 
 if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL) {
   console.error('❌ DATABASE_URL is required in production. Set it in Railway Variables or add a Postgres add-on.');
@@ -51,7 +52,8 @@ if (!ADMIN_ID) {
 
 console.log('Запуск бота...');
 console.log(`🤖 Токен бота: ${BOT_TOKEN.substring(0, 10)}...`);
-console.log(`👤 Админ ID: ${ADMIN_ID}`);
+const ADMINS = getAdmins();
+console.log(`👤 Админы: ${ADMINS.join(', ') || 'нет'}`);
 console.log(`⏰ Напоминания за ${REMINDER_HOURS} часов`);
 
 // Функция инициализации базы данных
@@ -152,7 +154,7 @@ bot.hears('ℹ️ Помощь', (ctx) => ctx.reply('/start - перезапус
 
 // Админ команды
 bot.command('addslot', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return;
+  if (!isAdmin(ctx.from.id)) return;
   const args = ctx.message.text.split(' ');
   if (args.length < 3) return ctx.reply('Формат: /addslot YYYY-MM-DD HH:MM');
   db.run(`INSERT INTO slots (date,time) VALUES (?,?)`, [args[1], args[2]]);
@@ -223,10 +225,10 @@ bot.action(/cancel_(\d+)/, (ctx) => {
         ]).resize()
       );
       // Уведомление админу
-      ctx.telegram.sendMessage(
-        ADMIN_ID,
+      ADMINS.forEach((adminId) => ctx.telegram.sendMessage(
+        adminId,
         `❌ Отмена записи!\n\n👤 Пользователь: @${ctx.from.username || ''} (${ctx.from.first_name || ''})\n📅 Дата: ${formatDateDMY(booking.date)} (${getWeekdayFullRu(booking.date)})\n⏰ Время: ${booking.time}`
-      );
+      ));
     }
   );
 });
@@ -240,7 +242,7 @@ bot.action('ignore', (ctx) => {
 
 // Показать все записи на сегодня
 bot.command('today', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return;
+  if (!isAdmin(ctx.from.id)) return;
   const today = new Date().toISOString().split('T')[0];
   db.all(
     `SELECT b.id, b.user_id, b.username, b.full_name, s.date, s.time FROM bookings b JOIN slots s ON b.slot_id=s.id WHERE s.date=? AND b.status='confirmed' ORDER BY s.date, s.time`,
@@ -255,7 +257,7 @@ bot.command('today', (ctx) => {
 
 // Показать все записи на завтра
 bot.command('tomorrow', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return;
+  if (!isAdmin(ctx.from.id)) return;
   const tomorrow = new Date(Date.now() + 24*60*60*1000).toISOString().split('T')[0];
   db.all(
     `SELECT b.id, b.user_id, b.username, b.full_name, s.date, s.time FROM bookings b JOIN slots s ON b.slot_id=s.id WHERE s.date=? AND b.status='confirmed' ORDER BY s.date, s.time`,
@@ -270,7 +272,7 @@ bot.command('tomorrow', (ctx) => {
 
 // Показать все свободные слоты
 bot.command('freeslots', (ctx) => {
-    if (ctx.from.id !== ADMIN_ID) return;
+    if (!isAdmin(ctx.from.id)) return;
     db.all(`SELECT date, time FROM slots WHERE is_booked=0 ORDER BY date, time`, [], (err, rows) => {
       if (!rows || rows.length === 0) return ctx.reply('Свободных слотов нет.');
       const list = rows.map(r => `${formatDateDMY(r.date)} ${r.time}`).join('\n');
@@ -279,13 +281,13 @@ bot.command('freeslots', (ctx) => {
   });
 // Добавить слот
   bot.command('addslot', (ctx) => {
-    if (ctx.from.id !== ADMIN_ID) return;  // Проверка админа
+    if (!isAdmin(ctx.from.id)) return;  // Проверка админа
     ctx.scene.enter('addslot');
   })
 
 // Удалить слот по дате и времени
 bot.command('deleteslot', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return;
+  if (!isAdmin(ctx.from.id)) return;
   const args = ctx.message.text.split(' ');
   if (args.length < 3) return ctx.reply('Формат: /deleteslot YYYY-MM-DD HH:MM');
   db.run(`DELETE FROM slots WHERE date=? AND time=?`, [args[1], args[2]], function(err) {
@@ -296,7 +298,7 @@ bot.command('deleteslot', (ctx) => {
 
 // Массовая рассылка
 bot.command('broadcast', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return;
+  if (!isAdmin(ctx.from.id)) return;
   const text = ctx.message.text.replace('/broadcast', '').trim();
   if (!text) return ctx.reply('Текст рассылки не указан.');
   db.all(`SELECT DISTINCT user_id FROM bookings`, [], (err, rows) => {
@@ -311,7 +313,7 @@ bot.command('broadcast', (ctx) => {
 
 // Статистика
 bot.command('stats', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return;
+  if (!isAdmin(ctx.from.id)) return;
   db.get(`SELECT COUNT(DISTINCT user_id) as users FROM bookings`, [], (err, row1) => {
     db.get(`SELECT COUNT(*) as total FROM bookings WHERE status='confirmed'`, [], (err, row2) => {
       db.get(`SELECT COUNT(*) as free FROM slots WHERE is_booked=0`, [], (err, row3) => {
@@ -323,7 +325,7 @@ bot.command('stats', (ctx) => {
 
 // Админ-меню
 bot.command('admin', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return;
+  if (!isAdmin(ctx.from.id)) return;
   ctx.reply('Админ-меню:', Markup.keyboard([
     ['📅 Записи на сегодня', '🟢 Свободные слоты'],
     ['📆 Записи на завтра', '➕ Добавить слот'],
@@ -335,7 +337,7 @@ bot.command('admin', (ctx) => {
 
 // Записи на неделю
 bot.hears('📅 Записи на неделю', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return;
+  if (!isAdmin(ctx.from.id)) return;
   const today = new Date();
   const weekDates = Array.from({length: 7}, (_, i) => {
     const d = new Date(today.getTime() + i * 24*60*60*1000);
@@ -373,7 +375,7 @@ bot.hears('📅 Записи на неделю', (ctx) => {
 
 // Записи на месяц
 bot.hears('📆 Записи на месяц', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return;
+  if (!isAdmin(ctx.from.id)) return;
   const today = new Date();
   const year = today.getFullYear();
   const month = String(today.getMonth() + 1).padStart(2, '0');
@@ -412,7 +414,7 @@ bot.hears('📆 Записи на месяц', (ctx) => {
 
 // Удаление слота по кнопке
 bot.hears('❌ Удалить слот', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return;
+  if (!isAdmin(ctx.from.id)) return;
   db.all(`SELECT id, date, time FROM slots ORDER BY date, time`, [], (err, rows) => {
   if (err) {
     console.error('Ошибка получения слотов для удаления:', err);
@@ -459,7 +461,7 @@ bot.hears('❌ Удалить слот', (ctx) => {
   });
 });
 bot.action(/delete_slot_(\d+)/, (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return ctx.answerCbQuery('Нет доступа');
+  if (!isAdmin(ctx.from.id)) return ctx.answerCbQuery('Нет доступа');
   const slotId = ctx.match[1];
   
   // Сначала получаем информацию о слоте перед удалением
@@ -492,7 +494,7 @@ bot.action(/delete_slot_(\d+)/, (ctx) => {
 
 // Обработчик для просмотра оставшихся слотов
 bot.action('show_remaining_slots', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return ctx.answerCbQuery('Нет доступа');
+  if (!isAdmin(ctx.from.id)) return ctx.answerCbQuery('Нет доступа');
   
   db.all(`SELECT date, time FROM slots ORDER BY date, time`, [], (err, rows) => {
     if (!rows || rows.length === 0) {
@@ -524,7 +526,7 @@ bot.action('show_remaining_slots', (ctx) => {
 
 // Обработчик для возврата к удалению слотов
 bot.action('back_to_delete_slots', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return ctx.answerCbQuery('Нет доступа');
+  if (!isAdmin(ctx.from.id)) return ctx.answerCbQuery('Нет доступа');
   
   db.all(`SELECT id, date, time FROM slots ORDER BY date, time`, [], (err, rows) => {
     if (!rows || rows.length === 0) {
@@ -574,21 +576,21 @@ bot.action('back_to_delete_slots', (ctx) => {
 
 // Добавить слот по кнопке  
 bot.hears('➕ Добавить слот', (ctx) => {
-    if (ctx.from.id !== ADMIN_ID) return;
+    if (!isAdmin(ctx.from.id)) return;
     ctx.scene.enter('addslot');
   });
 
 // Рассылка — запрашиваем текст
 let adminBroadcastStep = {};
 bot.hears('📢 Рассылка', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return;
+  if (!isAdmin(ctx.from.id)) return;
   adminBroadcastStep[ctx.from.id] = true;
   ctx.reply('Введите текст рассылки:', Markup.keyboard([['❌ Отменить рассылку']]).resize());
 });
 
 // Отмена рассылки
 bot.hears('❌ Отменить рассылку', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return;
+  if (!isAdmin(ctx.from.id)) return;
   adminBroadcastStep[ctx.from.id] = false;
   ctx.reply('Рассылка отменена.', Markup.keyboard([
     ['📅 Записи на сегодня', '🟢 Свободные слоты'],
@@ -600,7 +602,7 @@ bot.hears('❌ Отменить рассылку', (ctx) => {
 });
 
 bot.hears('📊 Статистика', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return;
+  if (!isAdmin(ctx.from.id)) return;
   db.get(`SELECT COUNT(DISTINCT user_id) as users FROM bookings`, [], (err, row1) => {
     db.get(`SELECT COUNT(*) as total FROM bookings WHERE status='confirmed'`, [], (err, row2) => {
       db.get(`SELECT COUNT(*) as free FROM slots WHERE is_booked=0`, [], (err, row3) => {
@@ -611,7 +613,7 @@ bot.hears('📊 Статистика', (ctx) => {
 });
 
 bot.hears('🟢 Свободные слоты', (ctx) => {
-    if (ctx.from.id !== ADMIN_ID) return;
+    if (!isAdmin(ctx.from.id)) return;
     db.all(`SELECT date, time FROM slots WHERE is_booked=0 ORDER BY date, time`, [], (err, rows) => {
       if (err) {
         console.error('Ошибка запроса свободных слотов:', err);
@@ -648,7 +650,7 @@ bot.hears('🟢 Свободные слоты', (ctx) => {
   });
 
 bot.hears('📅 Записи на сегодня', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return;
+  if (!isAdmin(ctx.from.id)) return;
   const today = new Date().toISOString().split('T')[0];
   db.all(
     `SELECT b.id, b.user_id, b.username, b.full_name, s.date, s.time FROM bookings b JOIN slots s ON b.slot_id=s.id WHERE s.date=? AND b.status='confirmed' ORDER BY s.date, s.time`,
@@ -674,7 +676,7 @@ bot.hears('📅 Записи на сегодня', (ctx) => {
 });
 
 bot.hears('📆 Записи на завтра', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return;
+  if (!isAdmin(ctx.from.id)) return;
   const tomorrow = new Date(Date.now() + 24*60*60*1000).toISOString().split('T')[0];
   db.all(
     `SELECT b.id, b.user_id, b.username, b.full_name, s.date, s.time FROM bookings b JOIN slots s ON b.slot_id=s.id WHERE s.date=? AND b.status='confirmed' ORDER BY s.date, s.time`,
@@ -743,7 +745,7 @@ function getWeekdayFullRu(dateStr) {
 
 // Обработчик текстовых сообщений для рассылки (должен быть в конце)
 bot.on('text', (ctx, next) => {
-  if (ctx.from.id === ADMIN_ID && adminBroadcastStep[ctx.from.id]) {
+  if (isAdmin(ctx.from.id) && adminBroadcastStep[ctx.from.id]) {
     const text = ctx.message.text.trim();
     
     // Проверяем, не является ли сообщение командой или кнопкой отмены
