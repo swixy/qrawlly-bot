@@ -236,8 +236,9 @@ const addslotScene = new WizardScene(
     }
     if (text === '⬅️ Назад к выбору даты' || text === 'Назад') {
       await ctx.reply('Возврат к выбору даты...', Markup.removeKeyboard());
-      await showAdminMenu(ctx);
-      return ctx.scene.leave();
+      await ctx.scene.leave();
+      await ctx.scene.enter('addslot');
+      return;
     }
 
     if (!text) {
