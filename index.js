@@ -163,10 +163,16 @@ bot.command('addslot', (ctx) => {
 
 // Напоминания (каждый час)
 cron.schedule('0 * * * *', () => {
-  const now = new Date();
+  const tzOffsetMin = parseInt(process.env.TZ_OFFSET_MINUTES || '0', 10);
+  const now = new Date(Date.now() + tzOffsetMin * 60 * 1000);
   const reminderTime = new Date(now.getTime() + REMINDER_HOURS * 60 * 60 * 1000);
-  const dateStr = reminderTime.toISOString().split('T')[0];
-  const timeStr = reminderTime.toTimeString().slice(0, 5);
+  const y = reminderTime.getFullYear();
+  const m = String(reminderTime.getMonth() + 1).padStart(2, '0');
+  const d = String(reminderTime.getDate()).padStart(2, '0');
+  const hh = String(reminderTime.getHours()).padStart(2, '0');
+  const mm = String(reminderTime.getMinutes()).padStart(2, '0');
+  const dateStr = `${y}-${m}-${d}`;
+  const timeStr = `${hh}:${mm}`;
   db.all(`SELECT b.user_id, s.date, s.time FROM bookings b JOIN slots s ON b.slot_id=s.id WHERE s.date=? AND s.time=?`,
     [dateStr, timeStr], (err, rows) => {
       if (err) {
@@ -174,7 +180,8 @@ cron.schedule('0 * * * *', () => {
         return;
       }
       rows.forEach(r => {
-        bot.telegram.sendMessage(r.user_id, `Напоминание! Ваша стрижка ${r.date} в ${r.time}`);
+        const prettyDate = formatDateDMY(r.date);
+        bot.telegram.sendMessage(r.user_id, `Напоминание! Ваша стрижка ${prettyDate} в ${r.time}`);
       });
     });
 });
