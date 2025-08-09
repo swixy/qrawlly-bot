@@ -162,28 +162,45 @@ bot.command('addslot', (ctx) => {
 });
 
 // Напоминания (каждый час)
-cron.schedule('0 * * * *', () => {
+cron.schedule('*/10 * * * *', () => {
   const tzOffsetMin = parseInt(process.env.TZ_OFFSET_MINUTES || '0', 10);
   const now = new Date(Date.now() + tzOffsetMin * 60 * 1000);
-  const reminderTime = new Date(now.getTime() + REMINDER_HOURS * 60 * 60 * 1000);
-  const y = reminderTime.getFullYear();
-  const m = String(reminderTime.getMonth() + 1).padStart(2, '0');
-  const d = String(reminderTime.getDate()).padStart(2, '0');
-  const hh = String(reminderTime.getHours()).padStart(2, '0');
-  const mm = String(reminderTime.getMinutes()).padStart(2, '0');
-  const dateStr = `${y}-${m}-${d}`;
-  const timeStr = `${hh}:${mm}`;
-  db.all(`SELECT b.user_id, s.date, s.time FROM bookings b JOIN slots s ON b.slot_id=s.id WHERE s.date=? AND s.time=?`,
-    [dateStr, timeStr], (err, rows) => {
-      if (err) {
-        console.error('Ошибка запроса напоминаний:', err);
-        return;
-      }
-      rows.forEach(r => {
-        const prettyDate = formatDateDMY(r.date);
-        bot.telegram.sendMessage(r.user_id, `Напоминание! Ваша стрижка ${prettyDate} в ${r.time}`);
-      });
+  const windowStart = now;
+  const windowEnd = new Date(now.getTime() + REMINDER_HOURS * 60 * 60 * 1000);
+  const y1 = windowStart.getFullYear();
+  const m1 = String(windowStart.getMonth() + 1).padStart(2, '0');
+  const d1 = String(windowStart.getDate()).padStart(2, '0');
+  const y2 = windowEnd.getFullYear();
+  const m2 = String(windowEnd.getMonth() + 1).padStart(2, '0');
+  const d2 = String(windowEnd.getDate()).padStart(2, '0');
+  const t1 = `${String(windowStart.getHours()).padStart(2, '0')}:${String(windowStart.getMinutes()).padStart(2, '0')}`;
+  const t2 = `${String(windowEnd.getHours()).padStart(2, '0')}:${String(windowEnd.getMinutes()).padStart(2, '0')}`;
+
+  // Если интервал в пределах одного дня — простой BETWEEN по времени; иначе — два запроса по краям
+  const queries = [];
+  if (`${y1}-${m1}-${d1}` === `${y2}-${m2}-${d2}`) {
+    queries.push({ sql: `SELECT b.id as booking_id, b.user_id, s.date, s.time FROM bookings b JOIN slots s ON b.slot_id=s.id WHERE s.date=? AND s.time>=? AND s.time<? AND b.status='confirmed' AND b.reminded_at IS NULL`, params: [`${y1}-${m1}-${d1}`, t1, t2] });
+  } else {
+    queries.push({ sql: `SELECT b.id as booking_id, b.user_id, s.date, s.time FROM bookings b JOIN slots s ON b.slot_id=s.id WHERE s.date=? AND s.time>=? AND b.status='confirmed' AND b.reminded_at IS NULL`, params: [`${y1}-${m1}-${d1}`, t1] });
+    queries.push({ sql: `SELECT b.id as booking_id, b.user_id, s.date, s.time FROM bookings b JOIN slots s ON b.slot_id=s.id WHERE s.date=? AND s.time<? AND b.status='confirmed' AND b.reminded_at IS NULL`, params: [`${y2}-${m2}-${d2}`, t2] });
+  }
+
+  const sendAndMark = (rows) => {
+    rows.forEach(r => {
+      const prettyDate = formatDateDMY(r.date);
+      bot.telegram.sendMessage(r.user_id, `Напоминание! Ваша стрижка ${prettyDate} в ${r.time}`)
+        .then(() => db.run(`UPDATE bookings SET reminded_at=CURRENT_TIMESTAMP WHERE id=?`, [r.booking_id]))
+        .catch(() => {});
     });
+  };
+
+  // Выполняем очередно все запросы окна
+  (async () => {
+    for (const q of queries) {
+      const result = await db.all(q.sql, q.params);
+      if (Array.isArray(result)) sendAndMark(result);
+    }
+  })();
 });
 
 bot.hears('❌ Отменить запись', (ctx) => {

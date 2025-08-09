@@ -54,7 +54,6 @@ function toYMD(val) {
 function toHM(val) {
   if (!val) return '';
   if (typeof val === 'string') {
-    // 'HH:MM:SS' -> 'HH:MM'
     if (val.length >= 5) return val.slice(0, 5);
     return val;
   }
@@ -108,6 +107,11 @@ async function initTables() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Эволюции схемы
+    await client.query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS reminded_at TIMESTAMP`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_slots_datetime ON slots(date, time)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_bookings_slot ON bookings(slot_id)`);
 
     console.log('✅ Таблицы PostgreSQL инициализированы');
   } catch (error) {
