@@ -172,8 +172,8 @@ app.get('/api/admin/stats', (req, res) => {
   // Записи на сегодня
   const today = new Date().toISOString().split('T')[0];
   const todayBookingsSql = isPostgres 
-    ? 'SELECT COUNT(*) as count FROM bookings WHERE date=$1'
-    : 'SELECT COUNT(*) as count FROM bookings WHERE date=?';
+    ? 'SELECT COUNT(*) as count FROM bookings b JOIN slots s ON b.slot_id = s.id WHERE s.date=$1'
+    : 'SELECT COUNT(*) as count FROM bookings b JOIN slots s ON b.slot_id = s.id WHERE s.date=?';
   
   // Доступные слоты
   const availableSlotsSql = isPostgres
@@ -212,7 +212,18 @@ app.get('/api/admin/stats', (req, res) => {
 });
 
 app.get('/api/admin/bookings', (req, res) => {
-  const sql = 'SELECT id, date, time, user_id, username, full_name FROM bookings ORDER BY date, time';
+  const sql = `
+    SELECT 
+      b.id, 
+      s.date, 
+      s.time, 
+      b.user_id, 
+      b.username, 
+      b.full_name 
+    FROM bookings b 
+    JOIN slots s ON b.slot_id = s.id 
+    ORDER BY s.date, s.time
+  `;
   
   db.all(sql, [], (err, bookings) => {
     if (err) {
