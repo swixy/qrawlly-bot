@@ -165,7 +165,7 @@ const modernBookingScene = new WizardScene(
       Markup.keyboard([['🏠 Главное меню', 'ℹ️ Помощь']]).resize());
     
     // Добавляем Web App кнопку
-    const webAppUrl = process.env.WEBAPP_URL || 'https://your-domain.com';
+    const webAppUrl = process.env.WEBAPP_URL || 'https://qrawlly-bot-production.up.railway.app';
     await ctx.reply('Или откройте приложение для записи:', Markup.inlineKeyboard([
       Markup.button.webApp('📱 Открыть приложение', webAppUrl)
     ]));
