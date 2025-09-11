@@ -83,10 +83,17 @@ app.get('/api/slots', (req, res) => {
     rows.forEach(row => {
       // Нормализуем дату в ISO формат (YYYY-MM-DD)
       let dateStr = row.date;
-      if (typeof dateStr === 'string' && dateStr.includes('GMT')) {
-        // Если дата в формате JavaScript Date, конвертируем в ISO
-        const date = new Date(dateStr);
-        dateStr = date.toISOString().split('T')[0];
+      
+      // Если это объект Date или строка с GMT, конвертируем в ISO
+      if (dateStr instanceof Date) {
+        dateStr = dateStr.toISOString().split('T')[0];
+      } else if (typeof dateStr === 'string') {
+        if (dateStr.includes('GMT') || dateStr.includes('T')) {
+          // Если дата в формате JavaScript Date или ISO, конвертируем
+          const date = new Date(dateStr);
+          dateStr = date.toISOString().split('T')[0];
+        }
+        // Если уже в формате YYYY-MM-DD, оставляем как есть
       }
       
       if (!slots[dateStr]) {
