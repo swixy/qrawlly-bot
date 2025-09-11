@@ -1,5 +1,33 @@
 const express = require('express');
+const { Telegraf, session, Scenes, Markup } = require('telegraf');
+const cron = require('node-cron');
+const { logCtx, safeStr } = require('./logger');
+const { getAdmins, isAdmin } = require('./admins');
 const path = require('path');
+
+// Импортируем основной код бота
+const { startBot } = require('./index');
+
+// Создаем Express приложение для Web App
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware для Web App
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'webapp')));
+
+// CORS для Telegram Web App
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
 
 // Выбираем базу данных в зависимости от окружения
 let db;
@@ -34,29 +62,9 @@ if (process.env.DATABASE_URL) {
 } else {
   // Используем SQLite локально
   const sqlite3 = require('sqlite3').verbose();
-  const dbPath = path.join(__dirname, '..', 'barber.db');
+  const dbPath = path.join(__dirname, 'barber.db');
   db = new sqlite3.Database(dbPath);
 }
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Middleware
-app.use(express.json());
-app.use(express.static(path.join(__dirname)));
-
-// CORS для Telegram Web App
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-  } else {
-    next();
-  }
-});
 
 // API для получения доступных слотов
 app.get('/api/slots', (req, res) => {
@@ -138,14 +146,19 @@ app.post('/api/book', (req, res) => {
   });
 });
 
-// Главная страница
+// Главная страница Web App
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(path.join(__dirname, 'webapp', 'index.html'));
 });
 
-// Запуск сервера
+// Запускаем сервер
 app.listen(PORT, () => {
-  console.log(`Web App server running on port ${PORT}`);
+  console.log(`🚀 Сервер запущен на порту ${PORT}`);
+  console.log(`📱 Web App доступен по адресу: http://localhost:${PORT}`);
+  
+  // Запускаем бота
+  startBot();
 });
 
-module.exports = app;
+// Экспортируем для использования в основном боте
+module.exports = { app, db };

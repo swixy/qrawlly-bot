@@ -4,11 +4,11 @@
   "description": "Telegram bot for haircut booking",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "node server.js",
     "dev": "node index.js",
     "webapp": "node webapp/server.js",
     "start:all": "concurrently \"npm start\" \"npm run webapp\"",
-    "railway:start": "concurrently \"npm start\" \"npm run webapp\""
+    "railway:start": "node server.js"
   },
   "keywords": [
     "telegram",

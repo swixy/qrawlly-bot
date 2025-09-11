@@ -118,7 +118,7 @@ bot.use(stage.middleware());
 
 // Главное меню
 bot.start((ctx) => {
-  const webAppUrl = process.env.WEBAPP_URL || 'https://qrawlly-bot-production.up.railway.app';
+  const webAppUrl = process.env.WEBAPP_URL || 'https://gallant-perception-production.up.railway.app';
   
   ctx.reply('Привет! Я бот для записи на стрижку. Выберите действие:', Markup.keyboard([
     ['✂️ Записаться на стрижку'],
@@ -139,7 +139,7 @@ bot.hears('✂️ Записаться на стрижку', (ctx) => {
 
 // Web App кнопка
 bot.hears('📱 Открыть приложение', (ctx) => {
-  const webAppUrl = process.env.WEBAPP_URL || 'https://qrawlly-bot-production.up.railway.app';
+  const webAppUrl = process.env.WEBAPP_URL || 'https://gallant-perception-production.up.railway.app';
   logCtx(ctx, 'open_webapp');
   
   ctx.reply('Откройте приложение для записи:', Markup.inlineKeyboard([
@@ -158,13 +158,13 @@ bot.hears('📋 Мои записи', (ctx) => {
       }
       if (!rows || rows.length === 0) {
         logCtx(ctx, 'my_bookings_empty');
-        const webAppUrl = process.env.WEBAPP_URL || 'https://qrawlly-bot-production.up.railway.app';
+        const webAppUrl = process.env.WEBAPP_URL || 'https://gallant-perception-production.up.railway.app';
         return ctx.reply('У вас нет записей.', Markup.inlineKeyboard([
           Markup.button.webApp('📱 Записаться через приложение', webAppUrl)
         ]));
       }
       const list = rows.map(r => `📅 ${formatDateDMY(r.date)} ⏰ ${r.time}`).join('\n');
-      const webAppUrl = process.env.WEBAPP_URL || 'https://qrawlly-bot-production.up.railway.app';
+      const webAppUrl = process.env.WEBAPP_URL || 'https://gallant-perception-production.up.railway.app';
       ctx.reply(`Ваши записи:\n${list}`, Markup.inlineKeyboard([
         Markup.button.webApp('📱 Открыть приложение', webAppUrl)
       ]));
@@ -847,8 +847,8 @@ async function startBot() {
   }
 }
 
-// Запускаем бота
-startBot();
+// Экспортируем функцию для использования в server.js
+module.exports = { startBot, bot, db };
 
 // Graceful stop
 process.once('SIGINT', () => {
