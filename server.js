@@ -66,13 +66,186 @@ if (process.env.DATABASE_URL) {
   db = new sqlite3.Database(dbPath);
 }
 
+// ------------------------------
+// Helpers: DB utils and schema
+// ------------------------------
+
+const isPostgres = !!process.env.DATABASE_URL;
+
+function run(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function(err) {
+      if (err) return reject(err);
+      resolve(this);
+    });
+  });
+}
+
+function get(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) return reject(err);
+      resolve(row);
+    });
+  });
+}
+
+function all(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) return reject(err);
+      resolve(rows);
+    });
+  });
+}
+
+async function ensureColumn(table, column, type) {
+  if (!isPostgres) {
+    // SQLite: check pragma
+    const cols = await all(`PRAGMA table_info(${table})`);
+    const exists = cols.some(c => c.name === column);
+    if (!exists) {
+      await run(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+    }
+    return;
+  }
+  // Postgres: ADD COLUMN IF NOT EXISTS
+  await run(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${column} ${type}`);
+}
+
+async function initSchema() {
+  // organizations
+  await run(
+    isPostgres
+      ? `CREATE TABLE IF NOT EXISTS organizations (
+           id SERIAL PRIMARY KEY,
+           name TEXT NOT NULL,
+           bot_token TEXT,
+           webapp_url TEXT,
+           created_at TIMESTAMP DEFAULT NOW()
+         )`
+      : `CREATE TABLE IF NOT EXISTS organizations (
+           id INTEGER PRIMARY KEY AUTOINCREMENT,
+           name TEXT NOT NULL,
+           bot_token TEXT,
+           webapp_url TEXT,
+           created_at TEXT DEFAULT (datetime('now'))
+         )`
+  );
+
+  // specialists
+  await run(
+    isPostgres
+      ? `CREATE TABLE IF NOT EXISTS specialists (
+           id SERIAL PRIMARY KEY,
+           organization_id INTEGER REFERENCES organizations(id),
+           name TEXT NOT NULL,
+           specialty TEXT,
+           is_active BOOLEAN DEFAULT true
+         )`
+      : `CREATE TABLE IF NOT EXISTS specialists (
+           id INTEGER PRIMARY KEY AUTOINCREMENT,
+           organization_id INTEGER,
+           name TEXT NOT NULL,
+           specialty TEXT,
+           is_active INTEGER DEFAULT 1
+         )`
+  );
+
+  // admins
+  await run(
+    isPostgres
+      ? `CREATE TABLE IF NOT EXISTS admins (
+           id SERIAL PRIMARY KEY,
+           organization_id INTEGER,
+           telegram_id BIGINT,
+           role TEXT
+         )`
+      : `CREATE TABLE IF NOT EXISTS admins (
+           id INTEGER PRIMARY KEY AUTOINCREMENT,
+           organization_id INTEGER,
+           telegram_id INTEGER,
+           role TEXT
+         )`
+  );
+
+  // org_settings
+  await run(
+    isPostgres
+      ? `CREATE TABLE IF NOT EXISTS org_settings (
+           organization_id INTEGER PRIMARY KEY REFERENCES organizations(id),
+           assign_mode TEXT DEFAULT 'first_free'
+         )`
+      : `CREATE TABLE IF NOT EXISTS org_settings (
+           organization_id INTEGER PRIMARY KEY,
+           assign_mode TEXT DEFAULT 'first_free'
+         )`
+  );
+
+  // Extend existing tables
+  await ensureColumn('slots', 'organization_id', isPostgres ? 'INTEGER' : 'INTEGER');
+  await ensureColumn('slots', 'specialist_id', isPostgres ? 'INTEGER' : 'INTEGER');
+  await ensureColumn('bookings', 'organization_id', isPostgres ? 'INTEGER' : 'INTEGER');
+  await ensureColumn('bookings', 'specialist_id', isPostgres ? 'INTEGER' : 'INTEGER');
+
+  // Seed default organization
+  const defaultOrgId = parseInt(process.env.ORG_ID || '1', 10);
+  const existingOrg = await get(
+    isPostgres ? 'SELECT id FROM organizations WHERE id=$1' : 'SELECT id FROM organizations WHERE id=?',
+    [defaultOrgId]
+  );
+  if (!existingOrg) {
+    if (isPostgres) {
+      await run('INSERT INTO organizations (id, name, webapp_url) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [
+        defaultOrgId,
+        'Default Organization',
+        process.env.WEBAPP_URL || ''
+      ]);
+    } else {
+      await run('INSERT OR IGNORE INTO organizations (id, name, webapp_url) VALUES (?,?,?)', [
+        defaultOrgId,
+        'Default Organization',
+        process.env.WEBAPP_URL || ''
+      ]);
+    }
+  }
+
+  // Backfill existing rows
+  await run(
+    isPostgres
+      ? `UPDATE slots SET organization_id=$1 WHERE organization_id IS NULL`
+      : `UPDATE slots SET organization_id=? WHERE organization_id IS NULL`,
+    [defaultOrgId]
+  );
+  await run(
+    isPostgres
+      ? `UPDATE bookings SET organization_id=$1 WHERE organization_id IS NULL`
+      : `UPDATE bookings SET organization_id=? WHERE organization_id IS NULL`,
+    [defaultOrgId]
+  );
+}
+
+// Initialize schema on startup
+initSchema().catch(err => console.error('Schema init error:', err));
+
 // API для получения доступных слотов
 app.get('/api/slots', (req, res) => {
-  const sql = process.env.DATABASE_URL 
-    ? `SELECT date, time FROM slots WHERE is_booked=false ORDER BY date, time`
-    : `SELECT date, time FROM slots WHERE is_booked=0 ORDER BY date, time`;
-    
-  db.all(sql, [], (err, rows) => {
+  const { specialist_id, organization_id, anySpecialist } = req.query;
+  const filters = [];
+  const params = [];
+
+  if (specialist_id) {
+    filters.push('specialist_id = ' + (isPostgres ? '$' + (params.push(Number(specialist_id))) : '?'));
+  }
+  if (organization_id) {
+    filters.push('organization_id = ' + (isPostgres ? '$' + (params.push(Number(organization_id))) : '?'));
+  }
+  filters.push(`is_booked=${isPostgres ? 'false' : '0'}`);
+
+  const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+  const sql = `SELECT date, time FROM slots ${where} ORDER BY date, time`;
+
+  db.all(sql, params, (err, rows) => {
     if (err) {
       console.error('Error fetching slots:', err);
       return res.json({ success: false, error: 'Database error' });
@@ -102,42 +275,95 @@ app.get('/api/slots', (req, res) => {
       slots[dateStr].push(row.time);
     });
 
-    console.log('Available slots:', Object.keys(slots));
     res.json({ success: true, slots });
   });
 });
 
 // API для бронирования
 app.post('/api/book', (req, res) => {
-  const { date, time, user_id, username, first_name } = req.body;
+  const { date, time, user_id, username, first_name, specialist_id, organization_id, anySpecialist } = req.body;
 
   if (!date || !time || !user_id) {
     return res.json({ success: false, error: 'Missing required fields' });
   }
 
-  const isPostgres = !!process.env.DATABASE_URL;
+  // Determine specialist assignment
+  const assignForOrg = async (orgId) => {
+    const settings = await get(
+      isPostgres
+        ? 'SELECT assign_mode FROM org_settings WHERE organization_id=$1'
+        : 'SELECT assign_mode FROM org_settings WHERE organization_id=?',
+      [orgId]
+    );
+    const mode = (settings && settings.assign_mode) || 'first_free';
+
+    if (mode === 'random') {
+      const avail = await all(
+        isPostgres
+          ? `SELECT id, specialist_id FROM slots WHERE organization_id=$1 AND date=$2 AND time=$3 AND is_booked=false AND specialist_id IS NOT NULL`
+          : `SELECT id, specialist_id FROM slots WHERE organization_id=? AND date=? AND time=? AND is_booked=0 AND specialist_id IS NOT NULL`,
+        [orgId, date, time]
+      );
+      if (avail.length === 0) return null;
+      return avail[Math.floor(Math.random() * avail.length)];
+    }
+
+    // first_free or default
+    const first = await get(
+      isPostgres
+        ? `SELECT id, specialist_id FROM slots WHERE organization_id=$1 AND date=$2 AND time=$3 AND is_booked=false AND specialist_id IS NOT NULL ORDER BY id ASC LIMIT 1`
+        : `SELECT id, specialist_id FROM slots WHERE organization_id=? AND date=? AND time=? AND is_booked=0 AND specialist_id IS NOT NULL ORDER BY id ASC LIMIT 1`,
+      [orgId, date, time]
+    );
+    return first;
+  };
+
+  const orgId = Number(organization_id || process.env.ORG_ID || 1);
+
   const slotCheckSql = isPostgres 
-    ? `SELECT id FROM slots WHERE date=$1 AND time=$2 AND is_booked=false`
-    : `SELECT id FROM slots WHERE date=? AND time=? AND is_booked=0`;
+    ? `SELECT id, specialist_id FROM slots WHERE date=$1 AND time=$2 AND ${specialist_id ? 'specialist_id=$3 AND ' : ''}is_booked=false ${organization_id ? 'AND organization_id=$' + (specialist_id ? 4 : 3) : ''}`
+    : `SELECT id, specialist_id FROM slots WHERE date=? AND time=? AND ${specialist_id ? 'specialist_id=? AND ' : ''}is_booked=0 ${organization_id ? 'AND organization_id=' + '?' : ''}`;
   const updateSlotSql = isPostgres
     ? `UPDATE slots SET is_booked=true WHERE id=$1`
     : `UPDATE slots SET is_booked=1 WHERE id=?`;
   const insertBookingSql = isPostgres
-    ? `INSERT INTO bookings (user_id, username, full_name, slot_id, created_at, status) VALUES ($1,$2,$3,$4,NOW(),'confirmed')`
-    : `INSERT INTO bookings (user_id, username, full_name, slot_id, created_at, status) VALUES (?,?,?,?,datetime('now'),'confirmed')`;
+    ? `INSERT INTO bookings (organization_id, specialist_id, user_id, username, full_name, slot_id, created_at, status) VALUES ($1,$2,$3,$4,$5,$6,NOW(),'confirmed')`
+    : `INSERT INTO bookings (organization_id, specialist_id, user_id, username, full_name, slot_id, created_at, status) VALUES (?,?,?,?,?,?,datetime('now'),'confirmed')`;
   const rollbackSql = isPostgres
     ? `UPDATE slots SET is_booked=false WHERE id=$1`
     : `UPDATE slots SET is_booked=0 WHERE id=?`;
 
-  // Проверяем доступность слота
-  db.get(slotCheckSql, [date, time], (err, slot) => {
+  const checkParams = [];
+  if (isPostgres) {
+    checkParams.push(date, time);
+    if (specialist_id) checkParams.push(Number(specialist_id));
+    if (organization_id) checkParams.push(Number(orgId));
+  } else {
+    checkParams.push(date, time);
+    if (specialist_id) checkParams.push(Number(specialist_id));
+    if (organization_id) checkParams.push(Number(orgId));
+  }
+
+  // Проверяем доступность слота / назначаем специалиста при anySpecialist
+  db.get(slotCheckSql, checkParams, async (err, slot) => {
     if (err) {
       console.error('Error checking slot:', err);
       return res.json({ success: false, error: 'Database error' });
     }
 
     if (!slot) {
-      return res.json({ success: false, error: 'Slot is no longer available' });
+      if (anySpecialist) {
+        try {
+          const assigned = await assignForOrg(orgId);
+          if (!assigned) return res.json({ success: false, error: 'No specialists available' });
+          slot = assigned; // { id, specialist_id }
+        } catch (e) {
+          console.error('Assignment error:', e);
+          return res.json({ success: false, error: 'Assignment error' });
+        }
+      } else {
+        return res.json({ success: false, error: 'Slot is no longer available' });
+      }
     }
 
     // Бронируем слот
@@ -148,7 +374,10 @@ app.post('/api/book', (req, res) => {
       }
 
       // Создаем запись
-      db.run(insertBookingSql, [user_id, username || '', first_name || '', slot.id], function(err) {
+      const bookingParams = isPostgres
+        ? [orgId, slot.specialist_id || (specialist_id ? Number(specialist_id) : null), user_id, username || '', first_name || '', slot.id]
+        : [orgId, slot.specialist_id || (specialist_id ? Number(specialist_id) : null), user_id, username || '', first_name || '', slot.id];
+      db.run(insertBookingSql, bookingParams, function(err) {
         if (err) {
           console.error('Error creating booking:', err);
           // Откатываем изменения в слоте
@@ -156,7 +385,7 @@ app.post('/api/book', (req, res) => {
           return res.json({ success: false, error: 'Database error' });
         }
 
-        res.json({ success: true, booking_id: this.lastID });
+        res.json({ success: true, booking_id: this.lastID, specialist_id: slot.specialist_id || specialist_id || null });
       });
     });
   });
@@ -214,14 +443,17 @@ app.get('/api/admin/stats', (req, res) => {
 app.get('/api/admin/bookings', (req, res) => {
   const sql = `
     SELECT 
-      b.id, 
-      s.date, 
-      s.time, 
-      b.user_id, 
-      b.username, 
-      b.full_name 
-    FROM bookings b 
-    JOIN slots s ON b.slot_id = s.id 
+      b.id,
+      s.date,
+      s.time,
+      b.user_id,
+      b.username,
+      b.full_name,
+      b.specialist_id,
+      sp.name AS specialist_name
+    FROM bookings b
+    JOIN slots s ON b.slot_id = s.id
+    LEFT JOIN specialists sp ON b.specialist_id = sp.id
     ORDER BY s.date, s.time
   `;
   
@@ -236,22 +468,22 @@ app.get('/api/admin/bookings', (req, res) => {
 });
 
 app.post('/api/admin/add-slots', (req, res) => {
-  const { date, times } = req.body;
+  const { date, times, specialist_id, organization_id } = req.body;
   
   if (!date || !times || !Array.isArray(times)) {
     return res.status(400).json({ success: false, error: 'Неверные данные' });
   }
   
-  const isPostgres = !!process.env.DATABASE_URL;
+  const orgId = Number(organization_id || process.env.ORG_ID || 1);
   const insertSql = isPostgres
-    ? 'INSERT INTO slots (date, time, is_booked) VALUES ($1, $2, false) ON CONFLICT (date, time) DO NOTHING'
-    : 'INSERT OR IGNORE INTO slots (date, time, is_booked) VALUES (?, ?, 0)';
+    ? 'INSERT INTO slots (organization_id, specialist_id, date, time, is_booked) VALUES ($1, $2, $3, $4, false) ON CONFLICT DO NOTHING'
+    : 'INSERT OR IGNORE INTO slots (organization_id, specialist_id, date, time, is_booked) VALUES (?, ?, ?, ?, 0)';
   
   let completed = 0;
   let errors = [];
   
   times.forEach(time => {
-    db.run(insertSql, [date, time], (err) => {
+    db.run(insertSql, [orgId, specialist_id || null, date, time], (err) => {
       if (err) {
         console.error('Error adding slot:', err);
         errors.push(err.message);
@@ -270,18 +502,23 @@ app.post('/api/admin/add-slots', (req, res) => {
 });
 
 app.get('/api/admin/available-times', (req, res) => {
-  const { date } = req.query;
+  const { date, specialist_id, organization_id } = req.query;
   
   if (!date) {
     return res.status(400).json({ success: false, error: 'Дата не указана' });
   }
   
-  const isPostgres = !!process.env.DATABASE_URL;
-  const sql = isPostgres
-    ? 'SELECT time FROM slots WHERE date=$1 AND is_booked=false ORDER BY time'
-    : 'SELECT time FROM slots WHERE date=? AND is_booked=0 ORDER BY time';
+  const filters = ['date = ' + (isPostgres ? '$1' : '?'), `is_booked=${isPostgres ? 'false' : '0'}`];
+  const params = [date];
+  if (specialist_id) {
+    filters.push('specialist_id = ' + (isPostgres ? '$' + (params.push(Number(specialist_id))) : '?'));
+  }
+  if (organization_id) {
+    filters.push('organization_id = ' + (isPostgres ? '$' + (params.push(Number(organization_id))) : '?'));
+  }
+  const sql = `SELECT time FROM slots WHERE ${filters.join(' AND ')} ORDER BY time`;
   
-  db.all(sql, [date], (err, rows) => {
+  db.all(sql, params, (err, rows) => {
     if (err) {
       console.error('Error fetching available times:', err);
       return res.json({ success: false, error: 'Database error' });
@@ -293,18 +530,31 @@ app.get('/api/admin/available-times', (req, res) => {
 });
 
 app.post('/api/admin/remove-slot', (req, res) => {
-  const { date, time } = req.body;
+  const { date, time, specialist_id, organization_id } = req.body;
   
   if (!date || !time) {
     return res.status(400).json({ success: false, error: 'Дата и время не указаны' });
   }
   
-  const isPostgres = !!process.env.DATABASE_URL;
-  const sql = isPostgres
-    ? 'DELETE FROM slots WHERE date=$1 AND time=$2'
-    : 'DELETE FROM slots WHERE date=? AND time=?';
+  const filters = ['date', 'time'];
+  const params = [date, time];
+  let idx = 3;
+  if (specialist_id) {
+    filters.push('specialist_id');
+    params.push(Number(specialist_id));
+    idx++;
+  }
+  if (organization_id) {
+    filters.push('organization_id');
+    params.push(Number(organization_id));
+    idx++;
+  }
+  const where = filters
+    .map((f, i) => `${f}=${isPostgres ? '$' + (i + 1) : '?'}`)
+    .join(' AND ');
+  const sql = `DELETE FROM slots WHERE ${where}`;
   
-  db.run(sql, [date, time], function(err) {
+  db.run(sql, params, function(err) {
     if (err) {
       console.error('Error removing slot:', err);
       return res.json({ success: false, error: 'Database error' });
@@ -315,6 +565,114 @@ app.post('/api/admin/remove-slot', (req, res) => {
     }
     
     res.json({ success: true, message: 'Слот удален' });
+  });
+});
+
+// ------------------------------
+// Admin: specialists and settings
+// ------------------------------
+
+app.get('/api/admin/specialists', (req, res) => {
+  const sql = `SELECT id, name, specialty, is_active FROM specialists ORDER BY name`;
+  db.all(sql, [], (err, rows) => {
+    if (err) return res.json({ success: false, error: 'Database error' });
+    res.json({ success: true, specialists: rows });
+  });
+});
+
+app.post('/api/admin/add-specialist', (req, res) => {
+  const { name, specialty, is_active, organization_id } = req.body;
+  if (!name) return res.status(400).json({ success: false, error: 'Name is required' });
+  const orgId = Number(organization_id || process.env.ORG_ID || 1);
+  const sql = isPostgres
+    ? 'INSERT INTO specialists (organization_id, name, specialty, is_active) VALUES ($1,$2,$3,$4)'
+    : 'INSERT INTO specialists (organization_id, name, specialty, is_active) VALUES (?,?,?,?)';
+  const active = is_active === undefined ? (isPostgres ? true : 1) : is_active;
+  db.run(sql, [orgId, name, specialty || '', isPostgres ? !!active : active ? 1 : 0], function(err) {
+    if (err) return res.json({ success: false, error: 'Database error' });
+    res.json({ success: true, specialist_id: this.lastID });
+  });
+});
+
+app.post('/api/admin/remove-specialist', (req, res) => {
+  const { specialist_id } = req.body;
+  if (!specialist_id) return res.status(400).json({ success: false, error: 'specialist_id required' });
+  const sql = isPostgres ? 'UPDATE specialists SET is_active=false WHERE id=$1' : 'UPDATE specialists SET is_active=0 WHERE id=?';
+  db.run(sql, [Number(specialist_id)], function(err) {
+    if (err) return res.json({ success: false, error: 'Database error' });
+    res.json({ success: true });
+  });
+});
+
+app.post('/api/admin/settings', (req, res) => {
+  const { organization_id, assignMode } = req.body;
+  const orgId = Number(organization_id || process.env.ORG_ID || 1);
+  const mode = ['first_free', 'random', 'balanced', 'priority'].includes(assignMode) ? assignMode : 'first_free';
+  if (isPostgres) {
+    run('INSERT INTO org_settings (organization_id, assign_mode) VALUES ($1,$2) ON CONFLICT (organization_id) DO UPDATE SET assign_mode=EXCLUDED.assign_mode', [orgId, mode])
+      .then(() => res.json({ success: true }))
+      .catch(() => res.json({ success: false, error: 'Database error' }));
+  } else {
+    run('INSERT OR REPLACE INTO org_settings (organization_id, assign_mode) VALUES (?,?)', [orgId, mode])
+      .then(() => res.json({ success: true }))
+      .catch(() => res.json({ success: false, error: 'Database error' }));
+  }
+});
+
+// ------------------------------
+// Superadmin endpoints (minimal)
+// ------------------------------
+
+app.get('/api/superadmin/organizations', (req, res) => {
+  db.all('SELECT id, name, webapp_url, created_at FROM organizations ORDER BY id', [], (err, rows) => {
+    if (err) return res.json({ success: false, error: 'Database error' });
+    res.json({ success: true, organizations: rows });
+  });
+});
+
+app.post('/api/superadmin/add-organization', (req, res) => {
+  const { id, name, bot_token, webapp_url } = req.body;
+  if (!name) return res.status(400).json({ success: false, error: 'name required' });
+  const sql = isPostgres
+    ? 'INSERT INTO organizations (id, name, bot_token, webapp_url) VALUES ($1,$2,$3,$4)'
+    : 'INSERT INTO organizations (id, name, bot_token, webapp_url) VALUES (?,?,?,?)';
+  db.run(sql, [id || null, name, bot_token || '', webapp_url || ''], function(err) {
+    if (err) return res.json({ success: false, error: 'Database error' });
+    res.json({ success: true, organization_id: this.lastID || id });
+  });
+});
+
+app.get('/api/superadmin/stats', async (req, res) => {
+  try {
+    const orgs = await all('SELECT id, name FROM organizations');
+    const results = [];
+    for (const org of orgs) {
+      const b = await get(isPostgres ? 'SELECT COUNT(*) as count FROM bookings WHERE organization_id=$1' : 'SELECT COUNT(*) as count FROM bookings WHERE organization_id=?', [org.id]);
+      const s = await get(isPostgres ? 'SELECT COUNT(*) as count FROM slots WHERE organization_id=$1' : 'SELECT COUNT(*) as count FROM slots WHERE organization_id=?', [org.id]);
+      results.push({ organization_id: org.id, name: org.name, bookings: b ? b.count : 0, slots: s ? s.count : 0 });
+    }
+    res.json({ success: true, stats: results });
+  } catch (e) {
+    console.error(e);
+    res.json({ success: false, error: 'Database error' });
+  }
+});
+
+// ------------------------------
+// Public specialists list for client
+// ------------------------------
+app.get('/api/specialists', (req, res) => {
+  const { organization_id } = req.query;
+  const params = [];
+  let where = 'WHERE is_active=' + (isPostgres ? 'true' : '1');
+  if (organization_id) {
+    where += ' AND organization_id=' + (isPostgres ? '$1' : '?');
+    params.push(Number(organization_id));
+  }
+  const sql = `SELECT id, name, specialty FROM specialists ${where} ORDER BY name`;
+  db.all(sql, params, (err, rows) => {
+    if (err) return res.json({ success: false, error: 'Database error' });
+    res.json({ success: true, specialists: rows });
   });
 });
 
