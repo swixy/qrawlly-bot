@@ -73,6 +73,12 @@
             margin-bottom: 16px;
         }
 
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
         .form-group label {
             display: block;
             font-size: 14px;
@@ -312,6 +318,11 @@
             font-size: 16px;
         }
 
+        /* Специалисты */
+        .spec-list { display: flex; flex-direction: column; gap: 8px; }
+        .spec-item { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border:1px solid #e5e5e7; border-radius:8px; }
+        .badge { font-size:12px; padding:4px 8px; border-radius:999px; background:#f5f5f7; color:#6e6e73; margin-left:8px; }
+
         /* Стили для Flatpickr календаря */
         .flatpickr-input {
             background: white !important;
@@ -436,9 +447,15 @@
             <div class="panel-card">
                 <h2>📅 Добавить слоты</h2>
                 <form id="add-slots-form">
+                    <div class="row">
                     <div class="form-group">
                         <label for="slot-date">📅 Дата</label>
                         <input type="text" id="slot-date" placeholder="Выберите дату" readonly required>
+                    </div>
+                    <div class="form-group">
+                        <label for="slot-specialist">👤 Специалист</label>
+                        <select id="slot-specialist" required></select>
+                    </div>
                     </div>
                     
                     <div class="form-group">
@@ -457,9 +474,15 @@
             <div class="panel-card">
                 <h2>🗑️ Удалить слоты</h2>
                 <form id="remove-slots-form">
+                    <div class="row">
                     <div class="form-group">
                         <label for="remove-date">📅 Дата</label>
                         <input type="text" id="remove-date" placeholder="Выберите дату" readonly required>
+                    </div>
+                    <div class="form-group">
+                        <label for="remove-specialist">👤 Специалист</label>
+                        <select id="remove-specialist" required></select>
+                    </div>
                     </div>
                     
                     <div class="form-group">
@@ -476,8 +499,46 @@
             </div>
         </div>
 
+        <div class="panel-card" style="margin-top: 16px;">
+            <h2>👥 Специалисты</h2>
+            <div id="spec-msg"></div>
+            <div class="row">
+                <div class="form-group">
+                    <label>Имя</label>
+                    <input id="spec-name" placeholder="Иван" />
+                </div>
+                <div class="form-group">
+                    <label>Специализация</label>
+                    <input id="spec-spec" placeholder="Барбер" />
+                </div>
+            </div>
+            <div style="display:flex; gap:8px; margin-bottom: 16px;">
+                <button class="button" id="spec-add-btn" onclick="addSpecialist()">Добавить специалиста</button>
+            </div>
+            <div id="spec-list" class="spec-list"><div class="loading">Загрузка специалистов...</div></div>
+        </div>
+
+        <div class="panel-card" style="margin-top: 16px;">
+            <h2>⚙️ Алгоритм распределения</h2>
+            <div class="row">
+                <div class="form-group">
+                    <label for="assign-mode">Режим назначения для «любой специалист»</label>
+                    <select id="assign-mode">
+                        <option value="first_free">Первый свободный</option>
+                        <option value="random">Случайный</option>
+                    </select>
+                </div>
+            </div>
+            <button class="button" onclick="saveAssignMode()">Сохранить</button>
+            <div id="assign-msg" style="margin-top:12px;"></div>
+        </div>
+
         <div class="bookings-list">
             <h2>📋 Все записи</h2>
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label for="filter-spec">Фильтр по специалисту</label>
+                <select id="filter-spec"><option value="">Все специалисты</option></select>
+            </div>
             <div id="bookings-container">
                 <div class="loading">Загрузка записей...</div>
             </div>
@@ -485,6 +546,86 @@
     </div>
 
     <script>
+        // Загрузка списка специалистов
+        async function loadSpecialists() {
+            try {
+                const res = await fetch('/api/admin/specialists');
+                const data = await res.json();
+                if (!data.success) return;
+                const options = data.specialists.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+                document.getElementById('slot-specialist').innerHTML = options;
+                document.getElementById('remove-specialist').innerHTML = options;
+                document.getElementById('filter-spec').innerHTML = '<option value="">Все специалисты</option>' + options;
+
+                // Список
+                const list = document.getElementById('spec-list');
+                list.innerHTML = data.specialists.map(s => `
+                    <div class="spec-item">
+                        <div>
+                            <strong>${s.name}</strong>
+                            ${s.specialty ? `<span class="badge">${s.specialty}</span>` : ''}
+                            ${s.is_active ? '' : `<span class="badge">неактивен</span>`}
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            ${s.is_active ? `<button class="button secondary btn-small" onclick="deactivateSpec(${s.id})">Деактивировать</button>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) { console.error('Error loading specialists', e); }
+        }
+
+        async function addSpecialist() {
+            const btn = document.getElementById('spec-add-btn');
+            const name = document.getElementById('spec-name').value.trim();
+            const spec = document.getElementById('spec-spec').value.trim();
+            const msg = document.getElementById('spec-msg');
+            msg.innerHTML = '';
+            if (!name) { msg.innerHTML = '<div class="error">Укажите имя</div>'; return; }
+            btn.disabled = true; btn.textContent = 'Сохранение...';
+            try {
+                const res = await fetch('/api/admin/add-specialist', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, specialty: spec, is_active: true })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('spec-name').value = '';
+                    document.getElementById('spec-spec').value = '';
+                    showSuccess('Специалист добавлен');
+                    loadSpecialists();
+                } else { showError(data.error || 'Ошибка'); }
+            } catch (e) { showError('Ошибка добавления'); }
+            finally { btn.disabled = false; btn.textContent = 'Добавить специалиста'; }
+        }
+
+        async function deactivateSpec(id) {
+            try {
+                const res = await fetch('/api/admin/remove-specialist', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ specialist_id: id })
+                });
+                const data = await res.json();
+                if (data.success) { showSuccess('Специалист деактивирован'); loadSpecialists(); }
+                else { showError(data.error || 'Ошибка деактивации'); }
+            } catch (e) { showError('Ошибка деактивации'); }
+        }
+
+        async function saveAssignMode() {
+            const mode = document.getElementById('assign-mode').value;
+            const a = document.getElementById('assign-msg');
+            a.innerHTML = '';
+            try {
+                const res = await fetch('/api/admin/settings', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ assignMode: mode })
+                });
+                const data = await res.json();
+                if (data.success) a.innerHTML = '<div class="success">Сохранено</div>';
+                else a.innerHTML = '<div class="error">Ошибка</div>';
+            } catch (e) { a.innerHTML = '<div class="error">Ошибка</div>'; }
+        }
+
+        document.getElementById('filter-spec').addEventListener('change', loadBookings);
         // Генерируем слоты времени
         function generateTimeSlots() {
             const timeSlots = document.getElementById('time-slots');
@@ -539,6 +680,7 @@
         // Загружаем записи
         async function loadBookings() {
             try {
+                const specId = document.getElementById('filter-spec').value;
                 const response = await fetch('/api/admin/bookings');
                 const data = await response.json();
                 
@@ -550,9 +692,12 @@
                         return;
                     }
                     
+                    // Фильтруем по специалисту при необходимости
+                    const source = specId ? data.bookings.filter(b => String(b.specialist_id||'') === String(specId)) : data.bookings;
+
                     // Группируем записи по дате
                     const groupedBookings = {};
-                    data.bookings.forEach(booking => {
+                    source.forEach(booking => {
                         const dateStr = formatDate(booking.date);
                         if (!groupedBookings[dateStr]) {
                             groupedBookings[dateStr] = [];
@@ -583,6 +728,7 @@
                                 <div class="booking-item">
                                     <div class="booking-info">
                                         <div class="booking-time">⏰ ${formatTime(booking.time)}</div>
+                                        ${booking.specialist_name ? `<div class=\"booking-client\">🧑‍🔧 ${booking.specialist_name}</div>` : ''}
                                         <div class="booking-client">👤 ${clientName}</div>
                                     </div>
                                     <div class="booking-actions">

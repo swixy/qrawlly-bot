@@ -733,6 +733,11 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'webapp', 'admin.html'));
 });
 
+// Суперадмин-панель
+app.get('/superadmin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'webapp', 'superadmin.html'));
+});
+
 // Запускаем сервер
 app.listen(PORT, () => {
   console.log(`🚀 Сервер запущен на порту ${PORT}`);
