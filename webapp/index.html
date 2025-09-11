@@ -47,6 +47,41 @@
             margin-bottom: 24px;
         }
 
+        .specialist-section {
+            margin-bottom: 24px;
+        }
+
+        .toggle-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .toggle-btn {
+            flex: 1;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 2px solid var(--tg-theme-hint-color, #e0e0e0);
+            background: var(--tg-theme-secondary-bg-color, #f8f8f8);
+            cursor: pointer;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .toggle-btn.active {
+            border-color: var(--tg-theme-button-color, #007aff);
+            background: var(--tg-theme-button-color, #007aff);
+            color: var(--tg-theme-button-text-color, #ffffff);
+        }
+
+        .select {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            border: 2px solid var(--tg-theme-hint-color, #e0e0e0);
+            background: var(--tg-theme-secondary-bg-color, #f8f8f8);
+        }
+
         .section-title {
             font-size: 18px;
             font-weight: 600;
@@ -468,6 +503,10 @@
         let selectedDate = null;
         let selectedTime = null;
         let availableSlots = {};
+        let specialists = [];
+        let isAnySpecialist = true;
+        let selectedSpecialistId = null;
+        let lastAssignedSpecialistId = null;
 
         // Инициализация Telegram Web App
         tg.ready();
@@ -477,12 +516,69 @@
         const user = tg.initDataUnsafe.user;
         console.log('User:', user);
 
+        // Загрузка специалистов
+        async function loadSpecialists() {
+            try {
+                const res = await fetch(window.location.origin + '/api/specialists');
+                const data = await res.json();
+                if (data.success) {
+                    specialists = data.specialists || [];
+                    renderSpecialistSection();
+                }
+            } catch (e) { console.error('Error loading specialists', e); }
+        }
+
+        // Рендер секции специалиста
+        function renderSpecialistSection() {
+            const container = document.querySelector('.container');
+            let block = document.getElementById('specialist-section');
+            if (!block) {
+                block = document.createElement('div');
+                block.className = 'specialist-section';
+                block.id = 'specialist-section';
+                container.insertBefore(block, document.querySelector('.date-section'));
+            }
+            const options = specialists.map(s => `<option value="${s.id}">${s.name}${s.specialty? ' — '+s.specialty : ''}</option>`).join('');
+            block.innerHTML = `
+                <h2 class="section-title">👤 Специалист</h2>
+                <div class="toggle-group">
+                    <div class="toggle-btn ${isAnySpecialist ? 'active' : ''}" onclick="setAny(true)">Любой доступный</div>
+                    <div class="toggle-btn ${!isAnySpecialist ? 'active' : ''}" onclick="setAny(false)">Выбрать специалиста</div>
+                </div>
+                <select id="specialist-select" class="select" ${isAnySpecialist ? 'disabled' : ''}>
+                    ${options}
+                </select>
+            `;
+            const select = document.getElementById('specialist-select');
+            if (select) {
+                select.addEventListener('change', () => {
+                    selectedSpecialistId = select.value ? Number(select.value) : null;
+                    loadAvailableSlots();
+                });
+                if (specialists.length && selectedSpecialistId == null) {
+                    selectedSpecialistId = Number(specialists[0].id);
+                    select.value = String(selectedSpecialistId);
+                }
+            }
+        }
+
+        function setAny(val) {
+            isAnySpecialist = val;
+            renderSpecialistSection();
+            loadAvailableSlots();
+        }
+
         // Загрузка доступных слотов
         async function loadAvailableSlots() {
             try {
                 showLoading(true);
-                const apiUrl = window.location.origin + '/api/slots';
-                const response = await fetch(apiUrl);
+                let url = window.location.origin + '/api/slots';
+                const params = [];
+                if (!isAnySpecialist && selectedSpecialistId) {
+                    params.push('specialist_id=' + encodeURIComponent(selectedSpecialistId));
+                }
+                if (params.length) url += '?' + params.join('&');
+                const response = await fetch(url);
                 const data = await response.json();
                 
                 if (data.success) {
@@ -633,13 +729,16 @@
                         time: selectedTime,
                         user_id: user.id,
                         username: user.username,
-                        first_name: user.first_name
+                        first_name: user.first_name,
+                        specialist_id: (!isAnySpecialist && selectedSpecialistId) ? selectedSpecialistId : null,
+                        anySpecialist: isAnySpecialist === true
                     })
                 });
 
                 const data = await response.json();
                 
                 if (data.success) {
+                    lastAssignedSpecialistId = data.specialist_id || ((!isAnySpecialist && selectedSpecialistId) ? selectedSpecialistId : null);
                     showBookingSuccess();
                 } else {
                     showError('Ошибка записи: ' + data.error);
@@ -715,6 +814,15 @@
             const successModal = document.getElementById('booking-success');
             const successDate = document.getElementById('success-date');
             const successTime = document.getElementById('success-time');
+            let specRow = document.getElementById('success-specialist');
+            if (!specRow) {
+                const details = document.querySelector('.booking-details');
+                const div = document.createElement('div');
+                div.className = 'booking-detail-item';
+                div.innerHTML = '<span class="detail-label">👤 Специалист</span><span class="detail-value" id="success-specialist"></span>';
+                details.insertBefore(div, details.firstChild);
+                specRow = document.getElementById('success-specialist');
+            }
             
             // Форматируем дату
             const date = new Date(selectedDate);
@@ -724,6 +832,8 @@
             // Устанавливаем данные
             successDate.textContent = `${dateStr} (${weekday})`;
             successTime.textContent = selectedTime;
+            const specName = (specialists.find(s => Number(s.id) === Number(lastAssignedSpecialistId)) || {}).name || (isAnySpecialist ? 'Назначен автоматически' : 'Выбран вручную');
+            specRow.textContent = specName;
             
             // Показываем модальное окно
             successModal.style.display = 'flex';
@@ -757,7 +867,7 @@
         }
 
         // Запуск приложения
-        loadAvailableSlots();
+        loadSpecialists().then(loadAvailableSlots);
     </script>
 </body>
 </html>
