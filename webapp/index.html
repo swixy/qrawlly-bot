@@ -401,17 +401,22 @@
             const timeContainer = document.getElementById('time-container');
             const times = availableSlots[selectedDate];
             
+            // Обрезаем секунды, оставляем только часы и минуты
+            const timesFormatted = times.map(time => {
+                return time.substring(0, 5); // Берем только HH:MM
+            });
+            
             // Группируем время по периодам
             const periods = {
-                'Утро': times.filter(time => {
+                'Утро': timesFormatted.filter(time => {
                     const hour = parseInt(time.split(':')[0]);
                     return hour >= 6 && hour < 12;
                 }),
-                'День': times.filter(time => {
+                'День': timesFormatted.filter(time => {
                     const hour = parseInt(time.split(':')[0]);
                     return hour >= 12 && hour < 18;
                 }),
-                'Вечер': times.filter(time => {
+                'Вечер': timesFormatted.filter(time => {
                     const hour = parseInt(time.split(':')[0]);
                     return hour >= 18;
                 })
@@ -438,7 +443,8 @@
 
         // Выбор времени
         function selectTime(time) {
-            selectedTime = time;
+            // Обрезаем секунды, оставляем только часы и минуты
+            selectedTime = time.substring(0, 5);
             renderTimes();
             showConfirmSection();
         }
@@ -505,7 +511,10 @@
             const weekday = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'][date.getDay()];
             const dateStr = `${date.getDate()}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`;
             
-            selectedDatetime.textContent = `${dateStr} (${weekday}) в ${selectedTime}`;
+            // Обрезаем секунды из времени
+            const timeFormatted = selectedTime.substring(0, 5);
+            
+            selectedDatetime.textContent = `${dateStr} (${weekday}) в ${timeFormatted}`;
             confirmSection.style.display = 'block';
         }
 
