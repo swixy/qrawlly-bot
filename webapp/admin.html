@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Админ-панель - Qrawlly Bot</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <style>
         * {
             margin: 0;
@@ -311,6 +312,93 @@
             font-size: 16px;
         }
 
+        /* Стили для Flatpickr календаря */
+        .flatpickr-input {
+            background: white !important;
+            border: 2px solid #e5e5e7 !important;
+            border-radius: 8px !important;
+            padding: 12px 16px !important;
+            font-size: 16px !important;
+            cursor: pointer !important;
+            transition: border-color 0.2s ease !important;
+        }
+
+        .flatpickr-input:focus {
+            border-color: #007aff !important;
+            outline: none !important;
+        }
+
+        .flatpickr-calendar {
+            border-radius: 12px !important;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
+            border: none !important;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        }
+
+        .flatpickr-months {
+            background: #007aff !important;
+            border-radius: 12px 12px 0 0 !important;
+        }
+
+        .flatpickr-month {
+            color: white !important;
+        }
+
+        .flatpickr-prev-month,
+        .flatpickr-next-month {
+            color: white !important;
+        }
+
+        .flatpickr-prev-month:hover,
+        .flatpickr-next-month:hover {
+            background: rgba(255, 255, 255, 0.1) !important;
+            border-radius: 6px !important;
+        }
+
+        .flatpickr-current-month {
+            color: white !important;
+        }
+
+        .flatpickr-weekdays {
+            background: #f5f5f7 !important;
+        }
+
+        .flatpickr-weekday {
+            color: #6e6e73 !important;
+            font-weight: 600 !important;
+        }
+
+        .flatpickr-day {
+            border-radius: 6px !important;
+            margin: 1px !important;
+            transition: all 0.2s ease !important;
+        }
+
+        .flatpickr-day:hover {
+            background: #f0f8ff !important;
+            border-color: #007aff !important;
+        }
+
+        .flatpickr-day.selected {
+            background: #007aff !important;
+            border-color: #007aff !important;
+        }
+
+        .flatpickr-day.today {
+            border-color: #007aff !important;
+            font-weight: 600 !important;
+        }
+
+        .flatpickr-day.today.selected {
+            background: #007aff !important;
+            color: white !important;
+        }
+
+        .flatpickr-day.disabled {
+            color: #d1d1d6 !important;
+            cursor: not-allowed !important;
+        }
+
         @media (max-width: 768px) {
             .admin-panel {
                 grid-template-columns: 1fr;
@@ -349,8 +437,8 @@
                 <h2>📅 Добавить слоты</h2>
                 <form id="add-slots-form">
                     <div class="form-group">
-                        <label for="slot-date">Дата</label>
-                        <input type="date" id="slot-date" required>
+                        <label for="slot-date">📅 Дата</label>
+                        <input type="text" id="slot-date" placeholder="Выберите дату" readonly required>
                     </div>
                     
                     <div class="form-group">
@@ -370,8 +458,8 @@
                 <h2>🗑️ Удалить слоты</h2>
                 <form id="remove-slots-form">
                     <div class="form-group">
-                        <label for="remove-date">Дата</label>
-                        <input type="date" id="remove-date" required>
+                        <label for="remove-date">📅 Дата</label>
+                        <input type="text" id="remove-date" placeholder="Выберите дату" readonly required>
                     </div>
                     
                     <div class="form-group">
@@ -711,6 +799,23 @@
         generateTimeSlots();
         loadStats();
         loadBookings();
+        
+        // Инициализируем календари
+        flatpickr("#slot-date", {
+            dateFormat: "Y-m-d",
+            minDate: "today",
+            locale: "ru",
+            disableMobile: true
+        });
+        
+        flatpickr("#remove-date", {
+            dateFormat: "Y-m-d",
+            minDate: "today",
+            locale: "ru",
+            disableMobile: true
+        });
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
 </body>
 </html>
