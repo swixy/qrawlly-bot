@@ -122,10 +122,14 @@ bot.start((ctx) => {
   
   ctx.reply('Привет! Я бот для записи на стрижку. Выберите действие:', Markup.keyboard([
     ['✂️ Записаться на стрижку'],
-    ['📱 Открыть приложение'],
     ['📋 Мои записи', '❌ Отменить запись'],
     ['ℹ️ Помощь']
   ]).resize());
+  
+  // Добавляем Web App кнопку как inline кнопку
+  ctx.reply('Или откройте приложение для записи:', Markup.inlineKeyboard([
+    Markup.button.webApp('📱 Открыть приложение', webAppUrl)
+  ]));
 });
 
 bot.hears('✂️ Записаться на стрижку', (ctx) => {
@@ -154,10 +158,16 @@ bot.hears('📋 Мои записи', (ctx) => {
       }
       if (!rows || rows.length === 0) {
         logCtx(ctx, 'my_bookings_empty');
-        return ctx.reply('У вас нет записей.');
+        const webAppUrl = process.env.WEBAPP_URL || 'https://your-domain.com';
+        return ctx.reply('У вас нет записей.', Markup.inlineKeyboard([
+          Markup.button.webApp('📱 Записаться через приложение', webAppUrl)
+        ]));
       }
       const list = rows.map(r => `📅 ${formatDateDMY(r.date)} ⏰ ${r.time}`).join('\n');
-      ctx.reply(`Ваши записи:\n${list}`);
+      const webAppUrl = process.env.WEBAPP_URL || 'https://your-domain.com';
+      ctx.reply(`Ваши записи:\n${list}`, Markup.inlineKeyboard([
+        Markup.button.webApp('📱 Открыть приложение', webAppUrl)
+      ]));
       logCtx(ctx, 'my_bookings_success', { count: rows.length });
     }
   );

@@ -164,6 +164,12 @@ const modernBookingScene = new WizardScene(
     await ctx.reply('📅 Выберите дату и время', 
       Markup.keyboard([['🏠 Главное меню', 'ℹ️ Помощь']]).resize());
     
+    // Добавляем Web App кнопку
+    const webAppUrl = process.env.WEBAPP_URL || 'https://your-domain.com';
+    await ctx.reply('Или откройте приложение для записи:', Markup.inlineKeyboard([
+      Markup.button.webApp('📱 Открыть приложение', webAppUrl)
+    ]));
+    
     await ctx.reply('🗓️ Выберите дату:', dateKeyboard);
     
     ctx.wizard.state.data = {};
