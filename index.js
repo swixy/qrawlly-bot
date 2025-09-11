@@ -120,11 +120,18 @@ bot.use(stage.middleware());
 bot.start((ctx) => {
   const webAppUrl = process.env.WEBAPP_URL || 'https://qrawlly-bot-production.up.railway.app';
   
-  ctx.reply('Привет! Я бот для записи на стрижку. Выберите действие:', Markup.keyboard([
-    ['✂️ Записаться на стрижку'],
-    ['📋 Мои записи', '❌ Отменить запись'],
-    ['ℹ️ Помощь']
-  ]).resize());
+        const keyboard = [
+            ['✂️ Записаться на стрижку'],
+            ['📋 Мои записи', '❌ Отменить запись'],
+            ['ℹ️ Помощь']
+        ];
+        
+        // Добавляем кнопку админ-панели только для админов
+        if (isAdmin(ctx.from.id)) {
+            keyboard.push(['🔧 Админ-панель']);
+        }
+        
+        ctx.reply('Привет! Я бот для записи на стрижку. Выберите действие:', Markup.keyboard(keyboard).resize());
   
   // Добавляем Web App кнопку как inline кнопку
   ctx.reply('Или откройте приложение для записи:', Markup.inlineKeyboard([
@@ -175,6 +182,24 @@ bot.hears('📋 Мои записи', (ctx) => {
 
 // Помощь
 bot.hears('ℹ️ Помощь', (ctx) => ctx.reply('/start - перезапуск бота\n@streetnoiser - связаться'));
+
+// Обработчик кнопки "Админ-панель"
+bot.hears('🔧 Админ-панель', (ctx) => {
+  if (!isAdmin(ctx.from.id)) {
+    return ctx.reply('❌ У вас нет прав доступа к админ-панели');
+  }
+  
+  const webAppUrl = process.env.WEBAPP_URL || 'https://qrawlly-bot-production.up.railway.app';
+  const adminUrl = `${webAppUrl}/admin`;
+  
+  ctx.reply(
+    '🔧 Админ-панель\n\n' +
+    'Управление записями и расписанием',
+    Markup.inlineKeyboard([
+      Markup.button.webApp('🔧 Открыть админ-панель', adminUrl)
+    ])
+  );
+});
 
 // Админ команды
 bot.command('addslot', (ctx) => {

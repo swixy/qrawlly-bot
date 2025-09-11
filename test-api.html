@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .result { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e8; color: #2e7d32; }
+        button { padding: 10px 20px; margin: 5px; background: #007aff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🧪 API Test для Qrawlly Bot</h1>
+    
+    <button onclick="testAPI()">Тест API слотов</button>
+    <button onclick="testDate()">Тест даты 12 числа</button>
+    
+    <div id="result" class="result">Нажмите кнопку для тестирования...</div>
+    
+    <script>
+        async function testAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Загрузка...';
+            
+            try {
+                const response = await fetch('https://qrawlly-bot-production.up.railway.app/api/slots');
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <h3>✅ API работает!</h3>
+                        <p><strong>Количество дат:</strong> ${Object.keys(data.slots).length}</p>
+                        <p><strong>Доступные даты:</strong></p>
+                        <ul>
+                            ${Object.keys(data.slots).map(date => 
+                                `<li>${date}: ${data.slots[date].length} слотов (${data.slots[date].join(', ')})</li>`
+                            ).join('')}
+                        </ul>
+                    `;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `❌ Ошибка API: ${data.error}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `❌ Ошибка сети: ${error.message}`;
+            }
+        }
+        
+        async function testDate() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Проверка 12 числа...';
+            
+            try {
+                const response = await fetch('https://qrawlly-bot-production.up.railway.app/api/slots');
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Ищем слоты на 12 число
+                    const today = new Date();
+                    const targetDate = new Date(today.getFullYear(), today.getMonth(), 12);
+                    const dateStr = targetDate.toISOString().split('T')[0];
+                    
+                    const slotsFor12 = data.slots[dateStr] || [];
+                    
+                    resultDiv.className = 'result ' + (slotsFor12.length > 0 ? 'success' : 'error');
+                    resultDiv.innerHTML = `
+                        <h3>${slotsFor12.length > 0 ? '✅' : '❌'} Слоты на 12 число</h3>
+                        <p><strong>Дата:</strong> ${dateStr}</p>
+                        <p><strong>Количество слотов:</strong> ${slotsFor12.length}</p>
+                        <p><strong>Время:</strong> ${slotsFor12.join(', ') || 'Нет слотов'}</p>
+                        <p><strong>Все доступные даты:</strong> ${Object.keys(data.slots).join(', ')}</p>
+                    `;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `❌ Ошибка API: ${data.error}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `❌ Ошибка сети: ${error.message}`;
+            }
+        }
+        
+        // Автоматический тест при загрузке
+        window.onload = testAPI;
+    </script>
+</body>
+</html>

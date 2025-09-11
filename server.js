@@ -162,9 +162,206 @@ app.post('/api/book', (req, res) => {
   });
 });
 
+// API для админ-панели
+app.get('/api/admin/stats', (req, res) => {
+  const isPostgres = !!process.env.DATABASE_URL;
+  
+  // Общее количество записей
+  const totalBookingsSql = 'SELECT COUNT(*) as count FROM bookings';
+  
+  // Записи на сегодня
+  const today = new Date().toISOString().split('T')[0];
+  const todayBookingsSql = isPostgres 
+    ? 'SELECT COUNT(*) as count FROM bookings WHERE date=$1'
+    : 'SELECT COUNT(*) as count FROM bookings WHERE date=?';
+  
+  // Доступные слоты
+  const availableSlotsSql = isPostgres
+    ? 'SELECT COUNT(*) as count FROM slots WHERE is_booked=false'
+    : 'SELECT COUNT(*) as count FROM slots WHERE is_booked=0';
+  
+  db.get(totalBookingsSql, [], (err, totalBookings) => {
+    if (err) {
+      console.error('Error fetching total bookings:', err);
+      return res.json({ success: false, error: 'Database error' });
+    }
+    
+    db.get(todayBookingsSql, [today], (err, todayBookings) => {
+      if (err) {
+        console.error('Error fetching today bookings:', err);
+        return res.json({ success: false, error: 'Database error' });
+      }
+      
+      db.get(availableSlotsSql, [], (err, availableSlots) => {
+        if (err) {
+          console.error('Error fetching available slots:', err);
+          return res.json({ success: false, error: 'Database error' });
+        }
+        
+        res.json({
+          success: true,
+          stats: {
+            totalBookings: totalBookings.count,
+            todayBookings: todayBookings.count,
+            availableSlots: availableSlots.count
+          }
+        });
+      });
+    });
+  });
+});
+
+app.get('/api/admin/bookings', (req, res) => {
+  const sql = 'SELECT id, date, time, user_id, username, full_name FROM bookings ORDER BY date, time';
+  
+  db.all(sql, [], (err, bookings) => {
+    if (err) {
+      console.error('Error fetching bookings:', err);
+      return res.json({ success: false, error: 'Database error' });
+    }
+    
+    res.json({ success: true, bookings });
+  });
+});
+
+app.post('/api/admin/add-slots', (req, res) => {
+  const { date, times } = req.body;
+  
+  if (!date || !times || !Array.isArray(times)) {
+    return res.status(400).json({ success: false, error: 'Неверные данные' });
+  }
+  
+  const isPostgres = !!process.env.DATABASE_URL;
+  const insertSql = isPostgres
+    ? 'INSERT INTO slots (date, time, is_booked) VALUES ($1, $2, false) ON CONFLICT (date, time) DO NOTHING'
+    : 'INSERT OR IGNORE INTO slots (date, time, is_booked) VALUES (?, ?, 0)';
+  
+  let completed = 0;
+  let errors = [];
+  
+  times.forEach(time => {
+    db.run(insertSql, [date, time], (err) => {
+      if (err) {
+        console.error('Error adding slot:', err);
+        errors.push(err.message);
+      }
+      completed++;
+      
+      if (completed === times.length) {
+        if (errors.length > 0) {
+          res.json({ success: false, error: errors.join(', ') });
+        } else {
+          res.json({ success: true, message: `Добавлено ${times.length} слотов` });
+        }
+      }
+    });
+  });
+});
+
+app.get('/api/admin/available-times', (req, res) => {
+  const { date } = req.query;
+  
+  if (!date) {
+    return res.status(400).json({ success: false, error: 'Дата не указана' });
+  }
+  
+  const isPostgres = !!process.env.DATABASE_URL;
+  const sql = isPostgres
+    ? 'SELECT time FROM slots WHERE date=$1 AND is_booked=false ORDER BY time'
+    : 'SELECT time FROM slots WHERE date=? AND is_booked=0 ORDER BY time';
+  
+  db.all(sql, [date], (err, rows) => {
+    if (err) {
+      console.error('Error fetching available times:', err);
+      return res.json({ success: false, error: 'Database error' });
+    }
+    
+    const times = rows.map(row => row.time);
+    res.json({ success: true, times });
+  });
+});
+
+app.post('/api/admin/remove-slot', (req, res) => {
+  const { date, time } = req.body;
+  
+  if (!date || !time) {
+    return res.status(400).json({ success: false, error: 'Дата и время не указаны' });
+  }
+  
+  const isPostgres = !!process.env.DATABASE_URL;
+  const sql = isPostgres
+    ? 'DELETE FROM slots WHERE date=$1 AND time=$2'
+    : 'DELETE FROM slots WHERE date=? AND time=?';
+  
+  db.run(sql, [date, time], function(err) {
+    if (err) {
+      console.error('Error removing slot:', err);
+      return res.json({ success: false, error: 'Database error' });
+    }
+    
+    if (this.changes === 0) {
+      return res.status(404).json({ success: false, error: 'Слот не найден' });
+    }
+    
+    res.json({ success: true, message: 'Слот удален' });
+  });
+});
+
+app.post('/api/admin/delete-booking', (req, res) => {
+  const { bookingId } = req.body;
+  
+  if (!bookingId) {
+    return res.status(400).json({ success: false, error: 'ID записи не указан' });
+  }
+  
+  const isPostgres = !!process.env.DATABASE_URL;
+  
+  // Получаем данные записи для освобождения слота
+  const bookingSql = 'SELECT slot_id FROM bookings WHERE id=?';
+  
+  db.get(bookingSql, [bookingId], (err, booking) => {
+    if (err) {
+      console.error('Error fetching booking:', err);
+      return res.json({ success: false, error: 'Database error' });
+    }
+    
+    if (!booking) {
+      return res.status(404).json({ success: false, error: 'Запись не найдена' });
+    }
+    
+    // Удаляем запись
+    const deleteBookingSql = 'DELETE FROM bookings WHERE id=?';
+    db.run(deleteBookingSql, [bookingId], (err) => {
+      if (err) {
+        console.error('Error deleting booking:', err);
+        return res.json({ success: false, error: 'Database error' });
+      }
+      
+      // Освобождаем слот
+      const updateSlotSql = isPostgres
+        ? 'UPDATE slots SET is_booked=false WHERE id=$1'
+        : 'UPDATE slots SET is_booked=0 WHERE id=?';
+      
+      db.run(updateSlotSql, [booking.slot_id], (err) => {
+        if (err) {
+          console.error('Error updating slot:', err);
+          return res.json({ success: false, error: 'Database error' });
+        }
+        
+        res.json({ success: true, message: 'Запись удалена' });
+      });
+    });
+  });
+});
+
 // Главная страница Web App
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'webapp', 'index.html'));
+});
+
+// Админ-панель
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'webapp', 'admin.html'));
 });
 
 // Запускаем сервер

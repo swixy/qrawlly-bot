@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ-панель - Qrawlly Bot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f7;
+            color: #1d1d1f;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1d1d1f;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #6e6e73;
+            font-size: 16px;
+        }
+
+        .admin-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .panel-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel-card h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #1d1d1f;
+            margin-bottom: 8px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e5e7;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.2s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #007aff;
+        }
+
+        .time-slots {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .time-slot {
+            padding: 8px 12px;
+            border: 2px solid #e5e5e7;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .time-slot:hover {
+            border-color: #007aff;
+            background: #f0f8ff;
+        }
+
+        .time-slot.selected {
+            border-color: #007aff;
+            background: #007aff;
+            color: white;
+        }
+
+        .button {
+            background: #007aff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100%;
+        }
+
+        .button:hover {
+            background: #0056b3;
+            transform: translateY(-1px);
+        }
+
+        .button:disabled {
+            background: #e5e5e7;
+            color: #8e8e93;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .button.secondary {
+            background: #f5f5f7;
+            color: #1d1d1f;
+        }
+
+        .button.secondary:hover {
+            background: #e5e5e7;
+        }
+
+        .bookings-list {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .bookings-list h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .booking-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            border: 1px solid #e5e5e7;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .booking-item:hover {
+            background: #f5f5f7;
+        }
+
+        .booking-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .booking-date {
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+
+        .booking-time {
+            color: #6e6e73;
+            font-size: 14px;
+        }
+
+        .booking-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+        }
+
+        .btn-danger {
+            background: #ff3b30;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #d70015;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #6e6e73;
+        }
+
+        .success {
+            background: #34c759;
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .error {
+            background: #ff3b30;
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: 700;
+            color: #007aff;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            color: #6e6e73;
+            font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            .admin-panel {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 Админ-панель</h1>
+            <p>Управление записями и расписанием</p>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="total-bookings">-</div>
+                <div class="stat-label">Всего записей</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="today-bookings">-</div>
+                <div class="stat-label">Сегодня</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="available-slots">-</div>
+                <div class="stat-label">Свободных слотов</div>
+            </div>
+        </div>
+
+        <div class="admin-panel">
+            <div class="panel-card">
+                <h2>📅 Добавить слоты</h2>
+                <form id="add-slots-form">
+                    <div class="form-group">
+                        <label for="slot-date">Дата</label>
+                        <input type="date" id="slot-date" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Время</label>
+                        <div class="time-slots" id="time-slots">
+                            <!-- Слоты времени будут добавлены динамически -->
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="button" id="add-slots-btn">
+                        ➕ Добавить слоты
+                    </button>
+                </form>
+            </div>
+
+            <div class="panel-card">
+                <h2>🗑️ Удалить слоты</h2>
+                <form id="remove-slots-form">
+                    <div class="form-group">
+                        <label for="remove-date">Дата</label>
+                        <input type="date" id="remove-date" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="remove-time">Время</label>
+                        <select id="remove-time" required>
+                            <option value="">Выберите время</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="button secondary" id="remove-slots-btn">
+                        🗑️ Удалить слот
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="bookings-list">
+            <h2>📋 Все записи</h2>
+            <div id="bookings-container">
+                <div class="loading">Загрузка записей...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Генерируем слоты времени
+        function generateTimeSlots() {
+            const timeSlots = document.getElementById('time-slots');
+            const slots = [];
+            
+            // Утренние слоты: 9:00 - 12:00
+            for (let hour = 9; hour < 12; hour++) {
+                slots.push(`${hour.toString().padStart(2, '0')}:00`);
+                slots.push(`${hour.toString().padStart(2, '0')}:30`);
+            }
+            
+            // Дневные слоты: 12:00 - 18:00
+            for (let hour = 12; hour < 18; hour++) {
+                slots.push(`${hour.toString().padStart(2, '0')}:00`);
+                slots.push(`${hour.toString().padStart(2, '0')}:30`);
+            }
+            
+            // Вечерние слоты: 18:00 - 21:00
+            for (let hour = 18; hour < 21; hour++) {
+                slots.push(`${hour.toString().padStart(2, '0')}:00`);
+                slots.push(`${hour.toString().padStart(2, '0')}:30`);
+            }
+            
+            timeSlots.innerHTML = slots.map(time => 
+                `<div class="time-slot" data-time="${time}">${time}</div>`
+            ).join('');
+            
+            // Добавляем обработчики клика
+            timeSlots.querySelectorAll('.time-slot').forEach(slot => {
+                slot.addEventListener('click', function() {
+                    this.classList.toggle('selected');
+                });
+            });
+        }
+
+        // Загружаем статистику
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/admin/stats');
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('total-bookings').textContent = data.stats.totalBookings;
+                    document.getElementById('today-bookings').textContent = data.stats.todayBookings;
+                    document.getElementById('available-slots').textContent = data.stats.availableSlots;
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // Загружаем записи
+        async function loadBookings() {
+            try {
+                const response = await fetch('/api/admin/bookings');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const container = document.getElementById('bookings-container');
+                    
+                    if (data.bookings.length === 0) {
+                        container.innerHTML = '<div class="loading">Записей нет</div>';
+                        return;
+                    }
+                    
+                    container.innerHTML = data.bookings.map(booking => `
+                        <div class="booking-item">
+                            <div class="booking-info">
+                                <div class="booking-date">${booking.date}</div>
+                                <div class="booking-time">${booking.time}</div>
+                            </div>
+                            <div class="booking-actions">
+                                <button class="button btn-small btn-danger" onclick="deleteBooking(${booking.id})">
+                                    Удалить
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Error loading bookings:', error);
+                document.getElementById('bookings-container').innerHTML = 
+                    '<div class="error">Ошибка загрузки записей</div>';
+            }
+        }
+
+        // Добавляем слоты
+        document.getElementById('add-slots-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const date = document.getElementById('slot-date').value;
+            const selectedSlots = Array.from(document.querySelectorAll('.time-slot.selected'))
+                .map(slot => slot.dataset.time);
+            
+            if (selectedSlots.length === 0) {
+                showError('Выберите хотя бы один слот времени');
+                return;
+            }
+            
+            const btn = document.getElementById('add-slots-btn');
+            btn.disabled = true;
+            btn.textContent = 'Добавление...';
+            
+            try {
+                const response = await fetch('/api/admin/add-slots', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        date: date,
+                        times: selectedSlots
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess(`Добавлено ${selectedSlots.length} слотов на ${date}`);
+                    // Сбрасываем форму
+                    document.getElementById('add-slots-form').reset();
+                    document.querySelectorAll('.time-slot.selected').forEach(slot => {
+                        slot.classList.remove('selected');
+                    });
+                    loadStats();
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError('Ошибка добавления слотов');
+                console.error('Error adding slots:', error);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '➕ Добавить слоты';
+            }
+        });
+
+        // Удаляем слоты
+        document.getElementById('remove-slots-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const date = document.getElementById('remove-date').value;
+            const time = document.getElementById('remove-time').value;
+            
+            const btn = document.getElementById('remove-slots-btn');
+            btn.disabled = true;
+            btn.textContent = 'Удаление...';
+            
+            try {
+                const response = await fetch('/api/admin/remove-slot', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        date: date,
+                        time: time
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess(`Слот ${time} на ${date} удален`);
+                    document.getElementById('remove-slots-form').reset();
+                    loadStats();
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError('Ошибка удаления слота');
+                console.error('Error removing slot:', error);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🗑️ Удалить слот';
+            }
+        });
+
+        // Удаляем запись
+        async function deleteBooking(bookingId) {
+            if (!confirm('Вы уверены, что хотите удалить эту запись?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/admin/delete-booking', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        bookingId: bookingId
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('Запись удалена');
+                    loadBookings();
+                    loadStats();
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError('Ошибка удаления записи');
+                console.error('Error deleting booking:', error);
+            }
+        }
+
+        // Показываем сообщения
+        function showSuccess(message) {
+            const existing = document.querySelector('.success, .error');
+            if (existing) existing.remove();
+            
+            const div = document.createElement('div');
+            div.className = 'success';
+            div.textContent = message;
+            document.querySelector('.container').insertBefore(div, document.querySelector('.admin-panel'));
+            
+            setTimeout(() => div.remove(), 3000);
+        }
+
+        function showError(message) {
+            const existing = document.querySelector('.success, .error');
+            if (existing) existing.remove();
+            
+            const div = document.createElement('div');
+            div.className = 'error';
+            div.textContent = message;
+            document.querySelector('.container').insertBefore(div, document.querySelector('.admin-panel'));
+            
+            setTimeout(() => div.remove(), 5000);
+        }
+
+        // Загружаем доступные времена для удаления
+        document.getElementById('remove-date').addEventListener('change', async function() {
+            const date = this.value;
+            const timeSelect = document.getElementById('remove-time');
+            
+            if (!date) {
+                timeSelect.innerHTML = '<option value="">Выберите время</option>';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/admin/available-times?date=${date}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    timeSelect.innerHTML = '<option value="">Выберите время</option>' +
+                        data.times.map(time => `<option value="${time}">${time}</option>`).join('');
+                }
+            } catch (error) {
+                console.error('Error loading available times:', error);
+            }
+        });
+
+        // Инициализация
+        generateTimeSlots();
+        loadStats();
+        loadBookings();
+    </script>
+</body>
+</html>
