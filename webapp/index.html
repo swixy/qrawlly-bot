@@ -243,6 +243,137 @@
             text-align: center;
         }
 
+        .booking-success {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .success-modal {
+            background: white;
+            border-radius: 20px;
+            padding: 40px 30px;
+            text-align: center;
+            max-width: 350px;
+            margin: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.4s ease;
+        }
+
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            background: #34c759;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 40px;
+        }
+
+        .success-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 12px;
+        }
+
+        .success-subtitle {
+            font-size: 16px;
+            color: #6e6e73;
+            margin-bottom: 24px;
+            line-height: 1.4;
+        }
+
+        .booking-details {
+            background: #f5f5f7;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .booking-detail-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e5e7;
+        }
+
+        .booking-detail-item:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            font-size: 14px;
+            color: #6e6e73;
+        }
+
+        .detail-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+
+        .success-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .success-button {
+            flex: 1;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .success-button.primary {
+            background: #007aff;
+            color: white;
+        }
+
+        .success-button.primary:hover {
+            background: #0056b3;
+        }
+
+        .success-button.secondary {
+            background: #f5f5f7;
+            color: #1d1d1f;
+        }
+
+        .success-button.secondary:hover {
+            background: #e5e5e7;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { 
+                opacity: 0;
+                transform: translateY(30px) scale(0.95);
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
         @media (max-width: 480px) {
             .container {
                 padding: 12px;
@@ -297,6 +428,39 @@
         <button class="confirm-button" id="confirm-button" onclick="confirmBooking()">
             ✅ Подтвердить запись
         </button>
+    </div>
+
+    <!-- Модальное окно успешной записи -->
+    <div class="booking-success" id="booking-success" style="display: none;">
+        <div class="success-modal">
+            <div class="success-icon">✅</div>
+            <h2 class="success-title">Запись подтверждена!</h2>
+            <p class="success-subtitle">Ваша запись на стрижку успешно создана</p>
+            
+            <div class="booking-details">
+                <div class="booking-detail-item">
+                    <span class="detail-label">📅 Дата</span>
+                    <span class="detail-value" id="success-date"></span>
+                </div>
+                <div class="booking-detail-item">
+                    <span class="detail-label">⏰ Время</span>
+                    <span class="detail-value" id="success-time"></span>
+                </div>
+                <div class="booking-detail-item">
+                    <span class="detail-label">📱 Напоминание</span>
+                    <span class="detail-value">За 2 часа</span>
+                </div>
+            </div>
+            
+            <div class="success-actions">
+                <button class="success-button secondary" onclick="closeSuccessModal()">
+                    Закрыть
+                </button>
+                <button class="success-button primary" onclick="bookAnother()">
+                    Записаться еще
+                </button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -476,8 +640,7 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    showSuccess('✅ Запись успешно подтверждена!');
-                    tg.close();
+                    showBookingSuccess();
                 } else {
                     showError('Ошибка записи: ' + data.error);
                 }
@@ -501,6 +664,10 @@
 
         function showTimeSection() {
             document.getElementById('time-section').style.display = 'block';
+        }
+
+        function hideTimeSection() {
+            document.getElementById('time-section').style.display = 'none';
         }
 
         function showConfirmSection() {
@@ -542,6 +709,51 @@
             setTimeout(() => {
                 successDiv.style.display = 'none';
             }, 3000);
+        }
+
+        function showBookingSuccess() {
+            const successModal = document.getElementById('booking-success');
+            const successDate = document.getElementById('success-date');
+            const successTime = document.getElementById('success-time');
+            
+            // Форматируем дату
+            const date = new Date(selectedDate);
+            const weekday = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'][date.getDay()];
+            const dateStr = `${date.getDate()}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`;
+            
+            // Устанавливаем данные
+            successDate.textContent = `${dateStr} (${weekday})`;
+            successTime.textContent = selectedTime;
+            
+            // Показываем модальное окно
+            successModal.style.display = 'flex';
+            
+            // Вибрация для мобильных устройств
+            if (navigator.vibrate) {
+                navigator.vibrate([200, 100, 200]);
+            }
+        }
+
+        function closeSuccessModal() {
+            const successModal = document.getElementById('booking-success');
+            successModal.style.display = 'none';
+            
+            // Закрываем Web App
+            tg.close();
+        }
+
+        function bookAnother() {
+            const successModal = document.getElementById('booking-success');
+            successModal.style.display = 'none';
+            
+            // Сбрасываем выбор
+            selectedDate = null;
+            selectedTime = null;
+            
+            // Перезагружаем интерфейс
+            loadAvailableSlots();
+            hideTimeSection();
+            hideConfirmSection();
         }
 
         // Запуск приложения
