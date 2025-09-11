@@ -81,12 +81,21 @@ app.get('/api/slots', (req, res) => {
     // Группируем слоты по датам
     const slots = {};
     rows.forEach(row => {
-      if (!slots[row.date]) {
-        slots[row.date] = [];
+      // Нормализуем дату в ISO формат (YYYY-MM-DD)
+      let dateStr = row.date;
+      if (typeof dateStr === 'string' && dateStr.includes('GMT')) {
+        // Если дата в формате JavaScript Date, конвертируем в ISO
+        const date = new Date(dateStr);
+        dateStr = date.toISOString().split('T')[0];
       }
-      slots[row.date].push(row.time);
+      
+      if (!slots[dateStr]) {
+        slots[dateStr] = [];
+      }
+      slots[dateStr].push(row.time);
     });
 
+    console.log('Available slots:', Object.keys(slots));
     res.json({ success: true, slots });
   });
 });
