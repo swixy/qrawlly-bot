@@ -795,27 +795,45 @@
             }
         });
 
+        // Инициализация календарей
+        function initCalendars() {
+            flatpickr("#slot-date", {
+                dateFormat: "Y-m-d",
+                minDate: "today",
+                locale: "ru",
+                disableMobile: true
+            });
+            
+            flatpickr("#remove-date", {
+                dateFormat: "Y-m-d",
+                minDate: "today",
+                locale: "ru",
+                disableMobile: true
+            });
+        }
+
         // Инициализация
         generateTimeSlots();
         loadStats();
         loadBookings();
         
-        // Инициализируем календари
-        flatpickr("#slot-date", {
-            dateFormat: "Y-m-d",
-            minDate: "today",
-            locale: "ru",
-            disableMobile: true
-        });
-        
-        flatpickr("#remove-date", {
-            dateFormat: "Y-m-d",
-            minDate: "today",
-            locale: "ru",
-            disableMobile: true
-        });
+        // Инициализируем календари после загрузки библиотеки
+        if (typeof flatpickr !== 'undefined') {
+            initCalendars();
+        } else {
+            // Ждем загрузки библиотеки
+            window.addEventListener('load', initCalendars);
+        }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
+    <script>
+        // Дополнительная инициализация после загрузки всех скриптов
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof flatpickr !== 'undefined') {
+                initCalendars();
+            }
+        });
+    </script>
 </body>
 </html>
