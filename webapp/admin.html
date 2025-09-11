@@ -278,6 +278,39 @@
             font-size: 14px;
         }
 
+        .date-group {
+            margin-bottom: 24px;
+        }
+
+        .date-header {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 12px;
+            padding: 12px 16px;
+            background: #f5f5f7;
+            border-radius: 8px;
+            border-left: 4px solid #007aff;
+        }
+
+        .bookings-for-date {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .booking-client {
+            color: #6e6e73;
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        .booking-time {
+            font-weight: 600;
+            color: #1d1d1f;
+            font-size: 16px;
+        }
+
         @media (max-width: 768px) {
             .admin-panel {
                 grid-template-columns: 1fr;
@@ -429,25 +462,77 @@
                         return;
                     }
                     
-                    container.innerHTML = data.bookings.map(booking => `
-                        <div class="booking-item">
-                            <div class="booking-info">
-                                <div class="booking-date">${booking.date}</div>
-                                <div class="booking-time">${booking.time}</div>
+                    // Группируем записи по дате
+                    const groupedBookings = {};
+                    data.bookings.forEach(booking => {
+                        const dateStr = formatDate(booking.date);
+                        if (!groupedBookings[dateStr]) {
+                            groupedBookings[dateStr] = [];
+                        }
+                        groupedBookings[dateStr].push(booking);
+                    });
+                    
+                    // Сортируем даты
+                    const sortedDates = Object.keys(groupedBookings).sort((a, b) => {
+                        return new Date(a.split('.').reverse().join('-')) - new Date(b.split('.').reverse().join('-'));
+                    });
+                    
+                    // Создаем HTML с группировкой
+                    let html = '';
+                    sortedDates.forEach(dateStr => {
+                        html += `
+                            <div class="date-group">
+                                <h3 class="date-header">📅 ${dateStr}</h3>
+                                <div class="bookings-for-date">
+                        `;
+                        
+                        // Сортируем записи по времени
+                        groupedBookings[dateStr].sort((a, b) => a.time.localeCompare(b.time));
+                        
+                        groupedBookings[dateStr].forEach(booking => {
+                            const clientName = booking.full_name || booking.username || `ID: ${booking.user_id}`;
+                            html += `
+                                <div class="booking-item">
+                                    <div class="booking-info">
+                                        <div class="booking-time">⏰ ${formatTime(booking.time)}</div>
+                                        <div class="booking-client">👤 ${clientName}</div>
+                                    </div>
+                                    <div class="booking-actions">
+                                        <button class="button btn-small btn-danger" onclick="deleteBooking(${booking.id})">
+                                            Удалить
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        html += `
+                                </div>
                             </div>
-                            <div class="booking-actions">
-                                <button class="button btn-small btn-danger" onclick="deleteBooking(${booking.id})">
-                                    Удалить
-                                </button>
-                            </div>
-                        </div>
-                    `).join('');
+                        `;
+                    });
+                    
+                    container.innerHTML = html;
                 }
             } catch (error) {
                 console.error('Error loading bookings:', error);
                 document.getElementById('bookings-container').innerHTML = 
                     '<div class="error">Ошибка загрузки записей</div>';
             }
+        }
+
+        // Форматируем дату в формат DD.MM.YYYY
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}.${month}.${year}`;
+        }
+
+        // Форматируем время в формат HH:MM
+        function formatTime(timeStr) {
+            return timeStr.substring(0, 5);
         }
 
         // Добавляем слоты
