@@ -323,8 +323,10 @@
                 
                 if (data.success) {
                     availableSlots = data.slots;
+                    console.log('Loaded slots:', data.slots);
                     renderDates();
                 } else {
+                    console.error('API error:', data.error);
                     showError('Ошибка загрузки слотов: ' + data.error);
                 }
             } catch (error) {
@@ -347,12 +349,17 @@
                 dates.push(date);
             }
 
+            console.log('Available slots:', availableSlots);
+            console.log('Available dates:', Object.keys(availableSlots));
+
             dateScroll.innerHTML = dates.map(date => {
                 const dateStr = formatDateISO(date);
                 const isAvailable = availableSlots[dateStr] && availableSlots[dateStr].length > 0;
                 const isToday = dateStr === formatDateISO(today);
                 const isWeekend = date.getDay() === 0 || date.getDay() === 6;
                 const isSelected = selectedDate === dateStr;
+
+                console.log(`Date ${dateStr}: available=${isAvailable}, slots=${availableSlots[dateStr]}`);
 
                 let className = 'date-item';
                 if (isSelected) className += ' selected';
