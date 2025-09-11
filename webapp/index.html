@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Запись на стрижку</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            line-height: 1.4;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--tg-theme-hint-color, #e0e0e0);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: var(--tg-theme-hint-color, #666666);
+            font-size: 14px;
+        }
+
+        .date-section {
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--tg-theme-text-color, #000000);
+        }
+
+        .date-scroll {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding: 8px 0;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .date-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .date-item {
+            min-width: 80px;
+            text-align: center;
+            padding: 12px 8px;
+            border-radius: 12px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: var(--tg-theme-secondary-bg-color, #f8f8f8);
+        }
+
+        .date-item:hover {
+            transform: translateY(-2px);
+        }
+
+        .date-item.selected {
+            background: var(--tg-theme-button-color, #007aff);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border-color: var(--tg-theme-button-color, #007aff);
+        }
+
+        .date-item.unavailable {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .date-item.weekend {
+            color: #ff3b30;
+        }
+
+        .date-item.today {
+            border-color: var(--tg-theme-button-color, #007aff);
+        }
+
+        .date-day {
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .date-number {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .time-section {
+            margin-bottom: 24px;
+        }
+
+        .time-period {
+            margin-bottom: 20px;
+        }
+
+        .period-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--tg-theme-text-color, #000000);
+        }
+
+        .time-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 8px;
+        }
+
+        .time-slot {
+            padding: 12px 8px;
+            text-align: center;
+            border-radius: 8px;
+            border: 2px solid var(--tg-theme-hint-color, #e0e0e0);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: var(--tg-theme-secondary-bg-color, #f8f8f8);
+            font-weight: 500;
+        }
+
+        .time-slot:hover {
+            border-color: var(--tg-theme-button-color, #007aff);
+            transform: translateY(-1px);
+        }
+
+        .time-slot.selected {
+            background: var(--tg-theme-button-color, #007aff);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border-color: var(--tg-theme-button-color, #007aff);
+        }
+
+        .confirm-section {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--tg-theme-bg-color, #ffffff);
+            border-top: 1px solid var(--tg-theme-hint-color, #e0e0e0);
+            padding: 16px;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .selected-info {
+            margin-bottom: 16px;
+            padding: 12px;
+            background: var(--tg-theme-secondary-bg-color, #f8f8f8);
+            border-radius: 8px;
+        }
+
+        .selected-info h3 {
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .selected-info p {
+            color: var(--tg-theme-hint-color, #666666);
+            font-size: 14px;
+        }
+
+        .confirm-button {
+            width: 100%;
+            padding: 16px;
+            background: var(--tg-theme-button-color, #007aff);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .confirm-button:hover {
+            opacity: 0.9;
+        }
+
+        .confirm-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--tg-theme-hint-color, #e0e0e0);
+            border-top: 2px solid var(--tg-theme-button-color, #007aff);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #ff3b30;
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .success {
+            background: #34c759;
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 12px;
+            }
+            
+            .date-item {
+                min-width: 70px;
+                padding: 10px 6px;
+            }
+            
+            .time-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✂️ Запись на стрижку</h1>
+            <p>Выберите удобную дату и время</p>
+        </div>
+
+        <div id="error-message" class="error" style="display: none;"></div>
+        <div id="success-message" class="success" style="display: none;"></div>
+
+        <div class="date-section">
+            <h2 class="section-title">📅 Выберите дату</h2>
+            <div id="date-scroll" class="date-scroll">
+                <!-- Даты будут загружены динамически -->
+            </div>
+        </div>
+
+        <div class="time-section" id="time-section" style="display: none;">
+            <h2 class="section-title">⏰ Выберите время</h2>
+            <div id="time-container">
+                <!-- Время будет загружено динамически -->
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Загрузка...</p>
+        </div>
+    </div>
+
+    <div class="confirm-section" id="confirm-section" style="display: none;">
+        <div class="selected-info">
+            <h3>📝 Подтверждение записи</h3>
+            <p id="selected-datetime"></p>
+        </div>
+        <button class="confirm-button" id="confirm-button" onclick="confirmBooking()">
+            ✅ Подтвердить запись
+        </button>
+    </div>
+
+    <script>
+        let tg = window.Telegram.WebApp;
+        let selectedDate = null;
+        let selectedTime = null;
+        let availableSlots = {};
+
+        // Инициализация Telegram Web App
+        tg.ready();
+        tg.expand();
+
+        // Получение данных пользователя
+        const user = tg.initDataUnsafe.user;
+        console.log('User:', user);
+
+        // Загрузка доступных слотов
+        async function loadAvailableSlots() {
+            try {
+                showLoading(true);
+                const apiUrl = window.location.origin + '/api/slots';
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                
+                if (data.success) {
+                    availableSlots = data.slots;
+                    renderDates();
+                } else {
+                    showError('Ошибка загрузки слотов: ' + data.error);
+                }
+            } catch (error) {
+                showError('Ошибка соединения с сервером');
+                console.error('Error loading slots:', error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Отображение дат
+        function renderDates() {
+            const dateScroll = document.getElementById('date-scroll');
+            const today = new Date();
+            const dates = [];
+
+            // Генерируем даты на ближайшие 14 дней
+            for (let i = 0; i < 14; i++) {
+                const date = new Date(today.getTime() + i * 24 * 60 * 60 * 1000);
+                dates.push(date);
+            }
+
+            dateScroll.innerHTML = dates.map(date => {
+                const dateStr = formatDateISO(date);
+                const isAvailable = availableSlots[dateStr] && availableSlots[dateStr].length > 0;
+                const isToday = dateStr === formatDateISO(today);
+                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                const isSelected = selectedDate === dateStr;
+
+                let className = 'date-item';
+                if (isSelected) className += ' selected';
+                if (!isAvailable) className += ' unavailable';
+                if (isWeekend) className += ' weekend';
+                if (isToday) className += ' today';
+
+                return `
+                    <div class="${className}" onclick="selectDate('${dateStr}')">
+                        <div class="date-day">${getWeekdayShort(date)}</div>
+                        <div class="date-number">${date.getDate()}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Выбор даты
+        function selectDate(dateStr) {
+            if (!availableSlots[dateStr] || availableSlots[dateStr].length === 0) {
+                return;
+            }
+
+            selectedDate = dateStr;
+            selectedTime = null;
+            
+            // Обновляем UI
+            renderDates();
+            renderTimes();
+            showTimeSection();
+            hideConfirmSection();
+        }
+
+        // Отображение времени
+        function renderTimes() {
+            if (!selectedDate || !availableSlots[selectedDate]) {
+                return;
+            }
+
+            const timeContainer = document.getElementById('time-container');
+            const times = availableSlots[selectedDate];
+            
+            // Группируем время по периодам
+            const periods = {
+                'Утро': times.filter(time => {
+                    const hour = parseInt(time.split(':')[0]);
+                    return hour >= 6 && hour < 12;
+                }),
+                'День': times.filter(time => {
+                    const hour = parseInt(time.split(':')[0]);
+                    return hour >= 12 && hour < 18;
+                }),
+                'Вечер': times.filter(time => {
+                    const hour = parseInt(time.split(':')[0]);
+                    return hour >= 18;
+                })
+            };
+
+            timeContainer.innerHTML = Object.keys(periods).map(period => {
+                if (periods[period].length === 0) return '';
+
+                return `
+                    <div class="time-period">
+                        <h3 class="period-title">🕐 ${period}</h3>
+                        <div class="time-grid">
+                            ${periods[period].map(time => `
+                                <div class="time-slot ${selectedTime === time ? 'selected' : ''}" 
+                                     onclick="selectTime('${time}')">
+                                    ${time}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Выбор времени
+        function selectTime(time) {
+            selectedTime = time;
+            renderTimes();
+            showConfirmSection();
+        }
+
+        // Подтверждение записи
+        async function confirmBooking() {
+            if (!selectedDate || !selectedTime) {
+                showError('Выберите дату и время');
+                return;
+            }
+
+            try {
+                showLoading(true);
+                const apiUrl = window.location.origin + '/api/book';
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        date: selectedDate,
+                        time: selectedTime,
+                        user_id: user.id,
+                        username: user.username,
+                        first_name: user.first_name
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('✅ Запись успешно подтверждена!');
+                    tg.close();
+                } else {
+                    showError('Ошибка записи: ' + data.error);
+                }
+            } catch (error) {
+                showError('Ошибка соединения с сервером');
+                console.error('Error booking:', error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Вспомогательные функции
+        function formatDateISO(date) {
+            return date.toISOString().split('T')[0];
+        }
+
+        function getWeekdayShort(date) {
+            const days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+            return days[date.getDay()];
+        }
+
+        function showTimeSection() {
+            document.getElementById('time-section').style.display = 'block';
+        }
+
+        function showConfirmSection() {
+            const confirmSection = document.getElementById('confirm-section');
+            const selectedDatetime = document.getElementById('selected-datetime');
+            
+            const date = new Date(selectedDate);
+            const weekday = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'][date.getDay()];
+            const dateStr = `${date.getDate()}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`;
+            
+            selectedDatetime.textContent = `${dateStr} (${weekday}) в ${selectedTime}`;
+            confirmSection.style.display = 'block';
+        }
+
+        function hideConfirmSection() {
+            document.getElementById('confirm-section').style.display = 'none';
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.getElementById('success-message');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        // Запуск приложения
+        loadAvailableSlots();
+    </script>
+</body>
+</html>

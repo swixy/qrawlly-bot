@@ -20,6 +20,7 @@ if (process.env.DATABASE_URL) {
   db = require('./db');
 }
 const bookingScene = require('./scenes/booking');
+const modernBookingScene = require('./scenes/modern-booking');
 const addslotScene = require('./scenes/addslot');
 
 // Конфигурация - приоритет переменным окружения, затем config.js
@@ -111,14 +112,17 @@ bot.catch((err, ctx) => {
 });
 
 // Настройка сцен
-const stage = new Scenes.Stage([bookingScene, addslotScene]);
+const stage = new Scenes.Stage([bookingScene, modernBookingScene, addslotScene]);
 bot.use(session());
 bot.use(stage.middleware());
 
 // Главное меню
 bot.start((ctx) => {
+  const webAppUrl = process.env.WEBAPP_URL || 'https://your-domain.com';
+  
   ctx.reply('Привет! Я бот для записи на стрижку. Выберите действие:', Markup.keyboard([
     ['✂️ Записаться на стрижку'],
+    ['📱 Открыть приложение'],
     ['📋 Мои записи', '❌ Отменить запись'],
     ['ℹ️ Помощь']
   ]).resize());
@@ -126,7 +130,17 @@ bot.start((ctx) => {
 
 bot.hears('✂️ Записаться на стрижку', (ctx) => {
   logCtx(ctx, 'enter_booking');
-  return ctx.scene.enter('booking');
+  return ctx.scene.enter('modern-booking');
+});
+
+// Web App кнопка
+bot.hears('📱 Открыть приложение', (ctx) => {
+  const webAppUrl = process.env.WEBAPP_URL || 'https://your-domain.com';
+  logCtx(ctx, 'open_webapp');
+  
+  ctx.reply('Откройте приложение для записи:', Markup.inlineKeyboard([
+    Markup.button.webApp('📱 Открыть приложение', webAppUrl)
+  ]));
 });
 bot.hears('📋 Мои записи', (ctx) => {
   logCtx(ctx, 'my_bookings_request');
