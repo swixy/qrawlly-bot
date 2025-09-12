@@ -1053,6 +1053,7 @@
             document.getElementById('services-screen').style.display = 'none';
             document.getElementById('specialists-screen').style.display = 'block';
             document.getElementById('datetime-screen').style.display = 'none';
+            document.getElementById('services-footer').style.display = 'none';
             document.getElementById('subtitle').innerText = 'Выберите специалиста';
             loadSpecialists();
         }
@@ -1094,6 +1095,7 @@
             document.getElementById('services-screen').style.display = 'none';
             document.getElementById('specialists-screen').style.display = 'none';
             document.getElementById('datetime-screen').style.display = 'block';
+            document.getElementById('services-footer').style.display = 'none';
             document.getElementById('subtitle').innerText = 'Выберите дату и время';
             loadAvailableSlots();
         }
