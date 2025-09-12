@@ -658,7 +658,7 @@
             if (!list) return;
             if (!services.length) {
                 list.innerHTML = '<div class="loading">Услуги пока не добавлены</div>';
-                updateServicesNext();
+                updateServicesSummary();
                 return;
             }
 
@@ -677,7 +677,7 @@
                         </div>
                     </label>`
             }).join('');
-            updateServicesNext();
+            updateServicesSummary();
         }
 
         function toggleService(id, checked) {
