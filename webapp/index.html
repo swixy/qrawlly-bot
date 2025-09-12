@@ -25,6 +25,25 @@
             padding: 16px;
         }
 
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .card {
+            background: var(--tg-theme-secondary-bg-color, #f8f8f8);
+            border: 2px solid var(--tg-theme-hint-color, #e0e0e0);
+            border-radius: 16px;
+            padding: 16px;
+            cursor: pointer;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+
+        .card:hover { transform: translateY(-2px); border-color: var(--tg-theme-button-color, #007aff); }
+        .card-title { font-weight: 700; margin-bottom: 4px; }
+        .card-sub { color: var(--tg-theme-hint-color, #666666); font-size: 13px; }
+
         .header {
             text-align: center;
             margin-bottom: 24px;
@@ -428,24 +447,59 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>✂️ Запись на стрижку</h1>
-            <p>Выберите удобную дату и время</p>
+            <h1>✂️ Запись</h1>
+            <p id="subtitle">С чего начать?</p>
         </div>
 
         <div id="error-message" class="error" style="display: none;"></div>
         <div id="success-message" class="success" style="display: none;"></div>
 
-        <div class="date-section">
-            <h2 class="section-title">📅 Выберите дату</h2>
-            <div id="date-scroll" class="date-scroll">
-                <!-- Даты будут загружены динамически -->
+        <!-- Start screen -->
+        <div id="start-screen">
+            <div class="cards-grid">
+                <div class="card" onclick="goToServices()">
+                    <div class="card-title">Выбрать услуги</div>
+                    <div class="card-sub">Название, описание и цена</div>
+                </div>
+                <div class="card" onclick="goToSpecialists()">
+                    <div class="card-title">Выбрать специалиста</div>
+                    <div class="card-sub">Можно пропустить и выбрать позже</div>
+                </div>
             </div>
         </div>
 
-        <div class="time-section" id="time-section" style="display: none;">
-            <h2 class="section-title">⏰ Выберите время</h2>
-            <div id="time-container">
-                <!-- Время будет загружено динамически -->
+        <!-- Services screen -->
+        <div id="services-screen" style="display:none;">
+            <h2 class="section-title" style="margin-bottom:8px;">🧾 Услуги</h2>
+            <div id="services-list"></div>
+            <div style="height:16px;"></div>
+            <button class="confirm-button" id="services-next" onclick="goToSpecialistsFromServices()" disabled>К выбору специалиста</button>
+        </div>
+
+        <!-- Specialists screen -->
+        <div id="specialists-screen" style="display:none;">
+            <div class="card" onclick="skipSpecialist()" style="margin-bottom:12px;">
+                <div class="card-title">Пропустить выбор специалиста</div>
+                <div class="card-sub">Перейти к выбору даты и времени</div>
+            </div>
+            <h2 class="section-title" style="margin-bottom:8px;">👤 Специалисты</h2>
+            <div id="specialists-list"></div>
+        </div>
+
+        <!-- DateTime screen -->
+        <div id="datetime-screen" style="display:none;">
+            <div class="date-section">
+                <h2 class="section-title">📅 Выберите дату</h2>
+                <div id="date-scroll" class="date-scroll">
+                    <!-- Даты будут загружены динамически -->
+                </div>
+            </div>
+
+            <div class="time-section" id="time-section" style="display: none;">
+                <h2 class="section-title">⏰ Выберите время</h2>
+                <div id="time-container">
+                    <!-- Время будет загружено динамически -->
+                </div>
             </div>
         </div>
 
@@ -523,49 +577,70 @@
                 const data = await res.json();
                 if (data.success) {
                     specialists = data.specialists || [];
-                    renderSpecialistSection();
+                    renderSpecialistsList();
                 }
             } catch (e) { console.error('Error loading specialists', e); }
         }
 
-        // Рендер секции специалиста
-        function renderSpecialistSection() {
-            const container = document.querySelector('.container');
-            let block = document.getElementById('specialist-section');
-            if (!block) {
-                block = document.createElement('div');
-                block.className = 'specialist-section';
-                block.id = 'specialist-section';
-                container.insertBefore(block, document.querySelector('.date-section'));
-            }
-            const options = specialists.map(s => `<option value="${s.id}">${s.name}${s.specialty? ' — '+s.specialty : ''}</option>`).join('');
-            block.innerHTML = `
-                <h2 class="section-title">👤 Специалист</h2>
-                <div class="toggle-group">
-                    <div class="toggle-btn ${isAnySpecialist ? 'active' : ''}" onclick="setAny(true)">Любой доступный</div>
-                    <div class="toggle-btn ${!isAnySpecialist ? 'active' : ''}" onclick="setAny(false)">Выбрать специалиста</div>
-                </div>
-                <select id="specialist-select" class="select" ${isAnySpecialist ? 'disabled' : ''}>
-                    ${options}
-                </select>
-            `;
-            const select = document.getElementById('specialist-select');
-            if (select) {
-                select.addEventListener('change', () => {
-                    selectedSpecialistId = select.value ? Number(select.value) : null;
-                    loadAvailableSlots();
-                });
-                if (specialists.length && selectedSpecialistId == null) {
-                    selectedSpecialistId = Number(specialists[0].id);
-                    select.value = String(selectedSpecialistId);
+        // Загрузка услуг
+        async function loadServices() {
+            try {
+                const res = await fetch(window.location.origin + '/api/services');
+                const data = await res.json();
+                if (data.success) {
+                    services = data.services || [];
+                    renderServicesList();
                 }
-            }
+            } catch (e) { console.error('Error loading services', e); }
         }
 
-        function setAny(val) {
-            isAnySpecialist = val;
-            renderSpecialistSection();
-            loadAvailableSlots();
+        // Рендер списка услуг
+        function renderServicesList() {
+            const list = document.getElementById('services-list');
+            if (!list) return;
+            list.innerHTML = services.map(s => {
+                const checked = selectedServiceIds.has(s.id) ? 'checked' : '';
+                const price = s.price != null ? `${(s.price/100).toFixed(2)} BYN` : '';
+                return `
+                    <label style="display:block; padding:12px; border:1px solid var(--tg-theme-hint-color,#e0e0e0); border-radius:12px; margin-bottom:8px; background: var(--tg-theme-bg-color,#fff);">
+                        <div style="display:flex; gap:12px; align-items:flex-start;">
+                            <input type="checkbox" ${checked} onchange="toggleService(${s.id}, this.checked)"> 
+                            <div style="flex:1;">
+                                <div style="font-weight:700;">${s.name} ${price? `<span style='color:#6e6e73; font-weight:600'>${price}</span>`:''}</div>
+                                ${s.description? `<div style='color:#6e6e73; font-size:13px; margin-top:6px;'>${s.description}</div>`:''}
+                            </div>
+                        </div>
+                    </label>`
+            }).join('');
+            updateServicesNext();
+        }
+
+        function toggleService(id, checked) {
+            if (checked) selectedServiceIds.add(id); else selectedServiceIds.delete(id);
+            updateServicesNext();
+        }
+
+        function updateServicesNext() {
+            const btn = document.getElementById('services-next');
+            if (btn) btn.disabled = selectedServiceIds.size === 0;
+        }
+
+        // Рендер списка специалистов
+        function renderSpecialistsList() {
+            const list = document.getElementById('specialists-list');
+            if (!list) return;
+            list.innerHTML = specialists.map(s => `
+                <div class="card" onclick="chooseSpecialist(${s.id})">
+                    <div class="card-title">${s.name}</div>
+                    <div class="card-sub">${s.specialty || 'Мастер'}</div>
+                </div>
+            `).join('');
+        }
+
+        function chooseSpecialist(id) {
+            isAnySpecialist = false;
+            selectedSpecialistId = id;
+            goToDateTime();
         }
 
         // Загрузка доступных слотов
@@ -861,13 +936,49 @@
             selectedTime = null;
             
             // Перезагружаем интерфейс
-            loadAvailableSlots();
-            hideTimeSection();
-            hideConfirmSection();
+            document.getElementById('datetime-screen').style.display = 'none';
+            document.getElementById('services-screen').style.display = 'none';
+            document.getElementById('specialists-screen').style.display = 'none';
+            document.getElementById('start-screen').style.display = 'block';
+            document.getElementById('subtitle').innerText = 'С чего начать?';
         }
 
-        // Запуск приложения
-        loadSpecialists().then(loadAvailableSlots);
+        // Навигация
+        function goToServices() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('services-screen').style.display = 'block';
+            document.getElementById('subtitle').innerText = 'Выберите услуги';
+            loadServices();
+        }
+
+        function goToSpecialists() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('specialists-screen').style.display = 'block';
+            document.getElementById('subtitle').innerText = 'Выберите специалиста';
+            loadSpecialists();
+        }
+
+        function goToSpecialistsFromServices() {
+            goToSpecialists();
+        }
+
+        function skipSpecialist() {
+            isAnySpecialist = true;
+            selectedSpecialistId = null;
+            goToDateTime();
+        }
+
+        function goToDateTime() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('services-screen').style.display = 'none';
+            document.getElementById('specialists-screen').style.display = 'none';
+            document.getElementById('datetime-screen').style.display = 'block';
+            document.getElementById('subtitle').innerText = 'Выберите дату и время';
+            loadAvailableSlots();
+        }
+
+        // Старт: показываем первый экран
+        document.getElementById('start-screen').style.display = 'block';
     </script>
 </body>
 </html>

@@ -182,6 +182,29 @@ async function initSchema() {
          )`
   );
 
+  // services (catalog)
+  await run(
+    isPostgres
+      ? `CREATE TABLE IF NOT EXISTS services (
+           id SERIAL PRIMARY KEY,
+           organization_id INTEGER REFERENCES organizations(id),
+           name TEXT NOT NULL,
+           description TEXT,
+           price INTEGER,
+           duration_min INTEGER DEFAULT 60,
+           is_active BOOLEAN DEFAULT true
+         )`
+      : `CREATE TABLE IF NOT EXISTS services (
+           id INTEGER PRIMARY KEY AUTOINCREMENT,
+           organization_id INTEGER,
+           name TEXT NOT NULL,
+           description TEXT,
+           price INTEGER,
+           duration_min INTEGER DEFAULT 60,
+           is_active INTEGER DEFAULT 1
+         )`
+  );
+
   // Extend existing tables
   await ensureColumn('slots', 'organization_id', isPostgres ? 'INTEGER' : 'INTEGER');
   await ensureColumn('slots', 'specialist_id', isPostgres ? 'INTEGER' : 'INTEGER');
@@ -223,6 +246,22 @@ async function initSchema() {
       : `UPDATE bookings SET organization_id=? WHERE organization_id IS NULL`,
     [defaultOrgId]
   );
+
+  // Seed default services
+  const servicesCount = await get(
+    isPostgres
+      ? 'SELECT COUNT(*) as count FROM services WHERE organization_id=$1'
+      : 'SELECT COUNT(*) as count FROM services WHERE organization_id=?',
+    [defaultOrgId]
+  );
+  if (!servicesCount || Number(servicesCount.count) === 0) {
+    const insertSql = isPostgres
+      ? 'INSERT INTO services (organization_id, name, description, price, duration_min, is_active) VALUES ($1,$2,$3,$4,$5,true)'
+      : 'INSERT INTO services (organization_id, name, description, price, duration_min, is_active) VALUES (?,?,?,?,?,1)';
+    await run(insertSql, [defaultOrgId, 'Мужская стрижка', 'Классическая стрижка, укладка', 3000, 60]);
+    await run(insertSql, [defaultOrgId, 'Стрижка бороды', 'Оформление и коррекция бороды', 1500, 30]);
+    await run(insertSql, [defaultOrgId, 'Комплекс: стрижка + борода', 'Полный уход', 4000, 90]);
+  }
 }
 
 // Initialize schema on startup
@@ -673,6 +712,22 @@ app.get('/api/specialists', (req, res) => {
   db.all(sql, params, (err, rows) => {
     if (err) return res.json({ success: false, error: 'Database error' });
     res.json({ success: true, specialists: rows });
+  });
+});
+
+// Public services catalog for client
+app.get('/api/services', (req, res) => {
+  const { organization_id } = req.query;
+  const params = [];
+  let where = 'WHERE is_active=' + (isPostgres ? 'true' : '1');
+  if (organization_id) {
+    where += ' AND organization_id=' + (isPostgres ? '$1' : '?');
+    params.push(Number(organization_id));
+  }
+  const sql = `SELECT id, name, description, price, duration_min FROM services ${where} ORDER BY id`;
+  db.all(sql, params, (err, rows) => {
+    if (err) return res.json({ success: false, error: 'Database error' });
+    res.json({ success: true, services: rows });
   });
 });
 
