@@ -291,7 +291,8 @@
 
         /* Confirmation screen styles */
         .booking-detail-card {
-            background: white;
+            background: var(--tg-theme-secondary-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
             border-radius: 12px;
             padding: 16px;
             margin-bottom: 12px;
@@ -653,18 +654,18 @@
 
                 <!-- Client info -->
                 <div class="booking-detail-card">
-                    <div style="font-weight:600; font-size:14px; margin-bottom:8px;">Имя</div>
-                    <input type="text" id="client-name" placeholder="Ваше имя" style="width:100%; padding:12px; border:1px solid #e0e0e0; border-radius:8px; font-size:16px;" />
+                    <div style="font-weight:600; font-size:14px; margin-bottom:8px; color: var(--tg-theme-text-color, #000000);">Имя</div>
+                    <input type="text" id="client-name" placeholder="Ваше имя" style="width:100%; padding:12px; border:1px solid var(--tg-theme-hint-color, #e0e0e0); border-radius:8px; font-size:16px; background: var(--tg-theme-bg-color, #ffffff); color: var(--tg-theme-text-color, #000000);" />
                 </div>
 
                 <div class="booking-detail-card">
-                    <div style="font-weight:600; font-size:14px; margin-bottom:8px;">Телефон</div>
-                    <input type="tel" id="client-phone" placeholder="+375 25 123 4567" style="width:100%; padding:12px; border:1px solid #e0e0e0; border-radius:8px; font-size:16px;" />
+                    <div style="font-weight:600; font-size:14px; margin-bottom:8px; color: var(--tg-theme-text-color, #000000);">Телефон</div>
+                    <input type="tel" id="client-phone" placeholder="+375 25 123 4567" style="width:100%; padding:12px; border:1px solid var(--tg-theme-hint-color, #e0e0e0); border-radius:8px; font-size:16px; background: var(--tg-theme-bg-color, #ffffff); color: var(--tg-theme-text-color, #000000);" />
                 </div>
 
                 <div class="booking-detail-card">
-                    <div style="font-weight:600; font-size:14px; margin-bottom:8px;">Комментарий</div>
-                    <input type="text" id="client-comment" placeholder="необязательно" style="width:100%; padding:12px; border:1px solid #e0e0e0; border-radius:8px; font-size:16px;" />
+                    <div style="font-weight:600; font-size:14px; margin-bottom:8px; color: var(--tg-theme-text-color, #000000);">Комментарий</div>
+                    <input type="text" id="client-comment" placeholder="необязательно" style="width:100%; padding:12px; border:1px solid var(--tg-theme-hint-color, #e0e0e0); border-radius:8px; font-size:16px; background: var(--tg-theme-bg-color, #ffffff); color: var(--tg-theme-text-color, #000000);" />
                 </div>
             </div>
         </div>
@@ -1258,10 +1259,16 @@
             const weekday = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'][date.getDay()];
             const dateStr = `${date.getDate()} ${['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'][date.getMonth()]}, ${weekday.toLowerCase()}`;
             document.getElementById('confirm-date').textContent = dateStr;
-            document.getElementById('confirm-time').textContent = `${selectedTime}-${getEndTime(selectedTime)}, 1 ч`;
-
-            // Services
+            
+            // Calculate total duration from selected services
             const selectedServices = services.filter(s => selectedServiceIds.has(s.id));
+            const totalDuration = selectedServices.reduce((sum, s) => sum + (Number(s.duration_min) || 60), 0);
+            const durationHours = Math.floor(totalDuration / 60);
+            const durationMinutes = totalDuration % 60;
+            const durationText = durationHours > 0 ? `${durationHours} ч ${durationMinutes > 0 ? durationMinutes + ' мин' : ''}` : `${durationMinutes} мин`;
+            document.getElementById('confirm-time').textContent = `${selectedTime}-${getEndTime(selectedTime, totalDuration)}, ${durationText}`;
+
+            // Services (reuse selectedServices from above)
             const servicesText = selectedServices.map(s => s.name).join(', ');
             const totalPrice = selectedServices.reduce((sum, s) => sum + Number(s.price || 0), 0);
             document.getElementById('confirm-services').textContent = servicesText || 'Услуги не выбраны';
@@ -1278,9 +1285,9 @@
             }
         }
 
-        function getEndTime(startTime) {
+        function getEndTime(startTime, durationMinutes = 60) {
             const [hours, minutes] = startTime.split(':').map(Number);
-            const endMinutes = minutes + 60; // 1 hour duration
+            const endMinutes = minutes + durationMinutes;
             const endHours = hours + Math.floor(endMinutes / 60);
             const finalMinutes = endMinutes % 60;
             return `${String(endHours).padStart(2, '0')}:${String(finalMinutes).padStart(2, '0')}`;
