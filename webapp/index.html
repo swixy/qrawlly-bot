@@ -585,7 +585,11 @@
         // Загрузка услуг
         async function loadServices() {
             try {
-                const res = await fetch(window.location.origin + '/api/services');
+                let res = await fetch('/api/services');
+                if (!res.ok) {
+                    // Повторная попытка (на случай особенностей окружения)
+                    res = await fetch('/api/services');
+                }
                 const data = await res.json();
                 if (data.success) {
                     services = data.services || [];
