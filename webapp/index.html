@@ -613,7 +613,7 @@
         <!-- Services screen -->
         <div id="services-screen" style="display:none;">
             <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
-                <button class="button secondary" onclick="goBackToStart()" style="padding:8px 12px; font-size:14px;">← Назад</button>
+                <button class="button secondary" onclick="goBackFromServices()" style="padding:8px 12px; font-size:14px;">← Назад</button>
                 <h2 class="section-title" style="margin:0;">🧾 Услуги</h2>
             </div>
             <div id="services-list" style="padding-bottom:120px;"></div>
@@ -623,7 +623,7 @@
                 <div id="services-count">0 услуг</div>
                 <div id="services-total" style="font-weight:700;">0 BYN</div>
             </div>
-            <button class="services-next-btn" id="services-next" onclick="goToSpecialistsFromServices()" disabled>К выбору специалиста</button>
+            <button class="services-next-btn" id="services-next" onclick="goNextFromServices()" disabled>К выбору специалиста</button>
         </div>
 
         <!-- Confirmation footer -->
@@ -794,6 +794,7 @@
         let lastAssignedSpecialistId = null;
         let services = [];
         let selectedServiceIds = new Set();
+        let cameFromSpecialist = false; // Отслеживаем, пришли ли на экран услуг из выбора специалиста
 
         // Инициализация Telegram Web App
         tg.ready();
@@ -891,7 +892,15 @@
             if (footer) footer.style.display = count > 0 ? 'flex' : 'none';
             if (countEl) countEl.textContent = `${count} ${pluralize(count, 'услуга','услуги','услуг')}`;
             if (totalEl) totalEl.textContent = `${(total/100).toFixed(2)} BYN`;
-            if (nextBtn) nextBtn.disabled = count === 0;
+            if (nextBtn) {
+                nextBtn.disabled = count === 0;
+                // Обновляем текст кнопки в зависимости от того, выбран ли специалист
+                if (cameFromSpecialist && selectedSpecialistId) {
+                    nextBtn.textContent = 'К выбору даты и времени';
+                } else {
+                    nextBtn.textContent = 'К выбору специалиста';
+                }
+            }
         }
 
         function pluralize(n, one, few, many) {
@@ -916,7 +925,8 @@
         function chooseSpecialist(id) {
             isAnySpecialist = false;
             selectedSpecialistId = id;
-            goToDateTime();
+            cameFromSpecialist = true; // Устанавливаем флаг что пришли из выбора специалиста
+            goToServices();
         }
 
         // Загрузка доступных слотов
@@ -1230,6 +1240,10 @@
             // скрыть нижние секции при входе в выбор услуг
             document.getElementById('services-footer').style.display = 'none';
             selectedServiceIds = new Set();
+            // Если не пришли из выбора специалиста, сбрасываем флаг
+            if (!cameFromSpecialist) {
+                cameFromSpecialist = false;
+            }
         }
 
         function goToSpecialists() {
@@ -1246,6 +1260,17 @@
             goToSpecialists();
         }
 
+        function goNextFromServices() {
+            if (cameFromSpecialist && selectedSpecialistId) {
+                // Если пришли из выбора специалиста и специалист уже выбран, переходим к дате/времени
+                cameFromSpecialist = false; // Сбрасываем флаг
+                goToDateTime();
+            } else {
+                // Иначе переходим к выбору специалиста
+                goToSpecialists();
+            }
+        }
+
         function goBackToStart() {
             document.getElementById('services-screen').style.display = 'none';
             document.getElementById('specialists-screen').style.display = 'none';
@@ -1260,6 +1285,17 @@
             document.getElementById('datetime-screen').style.display = 'none';
             document.getElementById('services-screen').style.display = 'block';
             document.getElementById('subtitle').innerText = 'Выберите услуги';
+        }
+
+        function goBackFromServices() {
+            if (cameFromSpecialist) {
+                // Если пришли из выбора специалиста, возвращаемся к специалистам
+                cameFromSpecialist = false; // Сбрасываем флаг
+                goToSpecialists();
+            } else {
+                // Если пришли из стартового экрана, возвращаемся к нему
+                goBackToStart();
+            }
         }
 
         function goBackToSpecialists() {
