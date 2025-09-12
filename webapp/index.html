@@ -585,12 +585,20 @@
         // Загрузка услуг
         async function loadServices() {
             try {
-                let res = await fetch('/api/services');
+                let res = await fetch(window.location.origin + '/api/services');
                 if (!res.ok) {
                     // Повторная попытка (на случай особенностей окружения)
                     res = await fetch('/api/services');
                 }
-                const data = await res.json();
+                let data;
+                try { data = await res.json(); }
+                catch(e){
+                    const txt = await res.text();
+                    console.error('Services non-JSON response:', txt);
+                    const list = document.getElementById('services-list');
+                    if (list) list.innerHTML = '<div class="error">Сервер вернул некорректный ответ</div>';
+                    return;
+                }
                 if (data.success) {
                     services = data.services || [];
                     renderServicesList();

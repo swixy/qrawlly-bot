@@ -774,6 +774,7 @@ app.get('/api/specialists', (req, res) => {
 
 // Public services catalog for client
 app.get('/api/services', (req, res) => {
+  console.log('GET /api/services');
   const { organization_id } = req.query;
   const params = [];
   let where = 'WHERE is_active=' + (isPostgres ? 'true' : '1');
