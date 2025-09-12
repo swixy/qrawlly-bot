@@ -823,6 +823,7 @@
             e.preventDefault();
             
             const date = document.getElementById('slot-date').value;
+            const specialistId = document.getElementById('slot-specialist').value;
             const selectedSlots = Array.from(document.querySelectorAll('.time-slot.selected'))
                 .map(slot => slot.dataset.time);
             
@@ -843,7 +844,8 @@
                     },
                     body: JSON.stringify({
                         date: date,
-                        times: selectedSlots
+                        times: selectedSlots,
+                        specialist_id: Number(specialistId)
                     })
                 });
                 
@@ -875,6 +877,7 @@
             
             const date = document.getElementById('remove-date').value;
             const time = document.getElementById('remove-time').value;
+            const specialistId = document.getElementById('remove-specialist').value;
             
             const btn = document.getElementById('remove-slots-btn');
             btn.disabled = true;
@@ -888,7 +891,8 @@
                     },
                     body: JSON.stringify({
                         date: date,
-                        time: time
+                        time: time,
+                        specialist_id: Number(specialistId)
                     })
                 });
                 
@@ -971,6 +975,7 @@
         document.getElementById('remove-date').addEventListener('change', async function() {
             const date = this.value;
             const timeSelect = document.getElementById('remove-time');
+            const specialistId = document.getElementById('remove-specialist').value;
             
             if (!date) {
                 timeSelect.innerHTML = '<option value="">Выберите время</option>';
@@ -978,7 +983,7 @@
             }
             
             try {
-                const response = await fetch(`/api/admin/available-times?date=${date}`);
+                const response = await fetch(`/api/admin/available-times?date=${date}&specialist_id=${encodeURIComponent(specialistId)}`);
                 const data = await response.json();
                 
                 if (data.success) {
@@ -988,6 +993,12 @@
             } catch (error) {
                 console.error('Error loading available times:', error);
             }
+        });
+
+        // При смене специалиста для удаления — перезагружаем список времен
+        document.getElementById('remove-specialist').addEventListener('change', () => {
+            const evt = new Event('change');
+            document.getElementById('remove-date').dispatchEvent(evt);
         });
 
         // Инициализация календарей
