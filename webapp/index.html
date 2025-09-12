@@ -1039,6 +1039,8 @@
         function goToServices() {
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('services-screen').style.display = 'block';
+            document.getElementById('specialists-screen').style.display = 'none';
+            document.getElementById('datetime-screen').style.display = 'none';
             document.getElementById('subtitle').innerText = 'Выберите услуги';
             loadServices();
             // скрыть нижние секции при входе в выбор услуг
@@ -1048,7 +1050,9 @@
 
         function goToSpecialists() {
             document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('services-screen').style.display = 'none';
             document.getElementById('specialists-screen').style.display = 'block';
+            document.getElementById('datetime-screen').style.display = 'none';
             document.getElementById('subtitle').innerText = 'Выберите специалиста';
             loadSpecialists();
         }
