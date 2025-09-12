@@ -643,6 +643,55 @@ app.post('/api/admin/remove-specialist', (req, res) => {
   });
 });
 
+// ------------------------------
+// Admin: services CRUD
+// ------------------------------
+
+app.get('/api/admin/services', (req, res) => {
+  const sql = `SELECT id, name, description, price, duration_min, is_active FROM services ORDER BY id`;
+  db.all(sql, [], (err, rows) => {
+    if (err) return res.json({ success: false, error: 'Database error' });
+    res.json({ success: true, services: rows });
+  });
+});
+
+app.post('/api/admin/add-service', (req, res) => {
+  const { name, description, price, duration_min, is_active, organization_id } = req.body;
+  if (!name) return res.status(400).json({ success: false, error: 'Name is required' });
+  const orgId = Number(organization_id || process.env.ORG_ID || 1);
+  const sql = isPostgres
+    ? 'INSERT INTO services (organization_id, name, description, price, duration_min, is_active) VALUES ($1,$2,$3,$4,$5,$6)'
+    : 'INSERT INTO services (organization_id, name, description, price, duration_min, is_active) VALUES (?,?,?,?,?,?)';
+  const active = is_active === undefined ? (isPostgres ? true : 1) : is_active;
+  db.run(sql, [orgId, name, description || '', price || 0, duration_min || 60, isPostgres ? !!active : active ? 1 : 0], function(err) {
+    if (err) return res.json({ success: false, error: 'Database error' });
+    res.json({ success: true, service_id: this.lastID });
+  });
+});
+
+app.post('/api/admin/update-service', (req, res) => {
+  const { id, name, description, price, duration_min, is_active } = req.body;
+  if (!id) return res.status(400).json({ success: false, error: 'id required' });
+  const sql = isPostgres
+    ? 'UPDATE services SET name=$1, description=$2, price=$3, duration_min=$4, is_active=$5 WHERE id=$6'
+    : 'UPDATE services SET name=?, description=?, price=?, duration_min=?, is_active=? WHERE id=?';
+  const params = [name || '', description || '', price || 0, duration_min || 60, isPostgres ? !!is_active : is_active ? 1 : 0, Number(id)];
+  db.run(sql, params, function(err) {
+    if (err) return res.json({ success: false, error: 'Database error' });
+    res.json({ success: true });
+  });
+});
+
+app.post('/api/admin/delete-service', (req, res) => {
+  const { id } = req.body;
+  if (!id) return res.status(400).json({ success: false, error: 'id required' });
+  const sql = 'DELETE FROM services WHERE id=' + (isPostgres ? '$1' : '?');
+  db.run(sql, [Number(id)], function(err) {
+    if (err) return res.json({ success: false, error: 'Database error' });
+    res.json({ success: true });
+  });
+});
+
 app.post('/api/admin/settings', (req, res) => {
   const { organization_id, assignMode } = req.body;
   const orgId = Number(organization_id || process.env.ORG_ID || 1);
