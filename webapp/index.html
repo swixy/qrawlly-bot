@@ -299,6 +299,50 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         }
 
+        .service-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--tg-theme-hint-color, #f0f0f0);
+        }
+
+        .service-item:last-child {
+            border-bottom: none;
+        }
+
+        .service-info {
+            flex: 1;
+        }
+
+        .service-name {
+            font-weight: 500;
+            color: var(--tg-theme-text-color, #000000);
+            font-size: 14px;
+        }
+
+        .service-price {
+            color: var(--tg-theme-hint-color, #666666);
+            font-size: 12px;
+            margin-top: 2px;
+        }
+
+        .service-remove {
+            background: #ff4757;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+
+        .service-remove:disabled {
+            background: var(--tg-theme-hint-color, #ccc);
+            cursor: not-allowed;
+        }
+
         .confirmation-footer {
             position: fixed;
             bottom: 0;
@@ -648,8 +692,14 @@
 
                 <!-- Services info -->
                 <div class="booking-detail-card">
-                    <div style="font-weight:600; font-size:16px;" id="confirm-services">Услуги</div>
-                    <div style="color:#666; font-size:14px;" id="confirm-services-price">Цена</div>
+                    <div style="font-weight:600; font-size:16px; margin-bottom:12px; color: var(--tg-theme-text-color, #000000);">Услуги</div>
+                    <div id="confirm-services-list"></div>
+                    <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--tg-theme-hint-color, #e0e0e0);">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-weight:600; color: var(--tg-theme-text-color, #000000);">Итого:</span>
+                            <span style="font-weight:600; color: var(--tg-theme-text-color, #000000);" id="confirm-services-total">0.00 BYN</span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Client info -->
@@ -1269,10 +1319,9 @@
             document.getElementById('confirm-time').textContent = `${selectedTime}-${getEndTime(selectedTime, totalDuration)}, ${durationText}`;
 
             // Services (reuse selectedServices from above)
-            const servicesText = selectedServices.map(s => s.name).join(', ');
+            renderServicesList();
             const totalPrice = selectedServices.reduce((sum, s) => sum + Number(s.price || 0), 0);
-            document.getElementById('confirm-services').textContent = servicesText || 'Услуги не выбраны';
-            document.getElementById('confirm-services-price').textContent = `${(totalPrice/100).toFixed(2)} BYN`;
+            document.getElementById('confirm-services-total').textContent = `${(totalPrice/100).toFixed(2)} BYN`;
 
             // Update footer
             document.getElementById('confirmation-count').textContent = `${selectedServices.length} ${pluralize(selectedServices.length, 'услуга', 'услуги', 'услуг')}`;
@@ -1291,6 +1340,57 @@
             const endHours = hours + Math.floor(endMinutes / 60);
             const finalMinutes = endMinutes % 60;
             return `${String(endHours).padStart(2, '0')}:${String(finalMinutes).padStart(2, '0')}`;
+        }
+
+        function renderServicesList() {
+            const servicesList = document.getElementById('confirm-services-list');
+            const selectedServices = services.filter(s => selectedServiceIds.has(s.id));
+            
+            if (selectedServices.length === 0) {
+                servicesList.innerHTML = '<div style="color: var(--tg-theme-hint-color, #666); font-size: 14px; text-align: center; padding: 20px;">Услуги не выбраны</div>';
+                return;
+            }
+
+            servicesList.innerHTML = selectedServices.map(service => `
+                <div class="service-item">
+                    <div class="service-info">
+                        <div class="service-name">${service.name}</div>
+                        <div class="service-price">${(Number(service.price || 0)/100).toFixed(2)} BYN</div>
+                    </div>
+                    <button class="service-remove" 
+                            onclick="removeService(${service.id})" 
+                            ${selectedServices.length === 1 ? 'disabled' : ''}>
+                        ✕
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function removeService(serviceId) {
+            if (selectedServiceIds.size <= 1) {
+                return; // Нельзя удалить последнюю услугу
+            }
+            
+            selectedServiceIds.delete(serviceId);
+            
+            // Пересчитываем время и обновляем отображение
+            const selectedServices = services.filter(s => selectedServiceIds.has(s.id));
+            const totalDuration = selectedServices.reduce((sum, s) => sum + (Number(s.duration_min) || 60), 0);
+            const durationHours = Math.floor(totalDuration / 60);
+            const durationMinutes = totalDuration % 60;
+            const durationText = durationHours > 0 ? `${durationHours} ч ${durationMinutes > 0 ? durationMinutes + ' мин' : ''}` : `${durationMinutes} мин`;
+            document.getElementById('confirm-time').textContent = `${selectedTime}-${getEndTime(selectedTime, totalDuration)}, ${durationText}`;
+            
+            // Обновляем список услуг
+            renderServicesList();
+            
+            // Обновляем итоговую цену
+            const totalPrice = selectedServices.reduce((sum, s) => sum + Number(s.price || 0), 0);
+            document.getElementById('confirm-services-total').textContent = `${(totalPrice/100).toFixed(2)} BYN`;
+            
+            // Обновляем футер
+            document.getElementById('confirmation-count').textContent = `${selectedServices.length} ${pluralize(selectedServices.length, 'услуга', 'услуги', 'услуг')}`;
+            document.getElementById('confirmation-total').textContent = `${(totalPrice/100).toFixed(2)} BYN`;
         }
 
         // Старт: показываем первый экран
