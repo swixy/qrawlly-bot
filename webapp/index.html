@@ -820,7 +820,7 @@
                 }
                 if (data.success) {
                     services = data.services || [];
-                    renderServicesList();
+                    renderServicesSelectionList();
                 } else {
                     console.error('API services error:', data.error);
                     const list = document.getElementById('services-list');
@@ -834,7 +834,7 @@
         }
 
         // Рендер списка услуг
-        function renderServicesList() {
+        function renderServicesSelectionList() {
             const list = document.getElementById('services-list');
             if (!list) return;
             if (!services.length) {
@@ -1319,7 +1319,7 @@
             document.getElementById('confirm-time').textContent = `${selectedTime}-${getEndTime(selectedTime, totalDuration)}, ${durationText}`;
 
             // Services (reuse selectedServices from above)
-            renderServicesList();
+            renderConfirmationServicesList();
             const totalPrice = selectedServices.reduce((sum, s) => sum + Number(s.price || 0), 0);
             document.getElementById('confirm-services-total').textContent = `${(totalPrice/100).toFixed(2)} BYN`;
 
@@ -1342,7 +1342,7 @@
             return `${String(endHours).padStart(2, '0')}:${String(finalMinutes).padStart(2, '0')}`;
         }
 
-        function renderServicesList() {
+        function renderConfirmationServicesList() {
             const servicesList = document.getElementById('confirm-services-list');
             const selectedServices = services.filter(s => selectedServiceIds.has(s.id));
             
@@ -1382,7 +1382,7 @@
             document.getElementById('confirm-time').textContent = `${selectedTime}-${getEndTime(selectedTime, totalDuration)}, ${durationText}`;
             
             // Обновляем список услуг
-            renderServicesList();
+            renderConfirmationServicesList();
             
             // Обновляем итоговую цену
             const totalPrice = selectedServices.reduce((sum, s) => sum + Number(s.price || 0), 0);
