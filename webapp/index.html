@@ -561,6 +561,8 @@
         let isAnySpecialist = true;
         let selectedSpecialistId = null;
         let lastAssignedSpecialistId = null;
+        let services = [];
+        let selectedServiceIds = new Set();
 
         // Инициализация Telegram Web App
         tg.ready();
