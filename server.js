@@ -214,6 +214,8 @@ async function initSchema() {
   await ensureColumn('slots', 'specialist_id', isPostgres ? 'INTEGER' : 'INTEGER');
   await ensureColumn('bookings', 'organization_id', isPostgres ? 'INTEGER' : 'INTEGER');
   await ensureColumn('bookings', 'specialist_id', isPostgres ? 'INTEGER' : 'INTEGER');
+  await ensureColumn('organizations', 'display_name', isPostgres ? 'TEXT' : 'TEXT');
+  await ensureColumn('organizations', 'logo_url', isPostgres ? 'TEXT' : 'TEXT');
 
   // Seed default organization
   const defaultOrgId = parseInt(process.env.ORG_ID || '1', 10);
@@ -238,6 +240,28 @@ async function initSchema() {
         'https://cdn-icons-png.flaticon.com/512/1995/1995515.png',
         process.env.WEBAPP_URL || ''
       ]);
+    }
+  } else {
+    // Update existing organization with default values if fields are empty
+    const orgCheck = await get(
+      isPostgres ? 'SELECT display_name, logo_url FROM organizations WHERE id=$1' : 'SELECT display_name, logo_url FROM organizations WHERE id=?',
+      [defaultOrgId]
+    );
+    
+    if (!orgCheck.display_name || !orgCheck.logo_url) {
+      if (isPostgres) {
+        await run('UPDATE organizations SET display_name=$1, logo_url=$2 WHERE id=$3', [
+          'Барбершоп',
+          'https://cdn-icons-png.flaticon.com/512/1995/1995515.png',
+          defaultOrgId
+        ]);
+      } else {
+        await run('UPDATE organizations SET display_name=?, logo_url=? WHERE id=?', [
+          'Барбершоп',
+          'https://cdn-icons-png.flaticon.com/512/1995/1995515.png',
+          defaultOrgId
+        ]);
+      }
     }
   }
 
