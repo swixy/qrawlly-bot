@@ -289,6 +289,58 @@
         }
         .services-next-btn:disabled { opacity: 0.6; }
 
+        /* Confirmation screen styles */
+        .booking-detail-card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+
+        .confirmation-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--tg-theme-bg-color, #ffffff);
+            border-top: 1px solid var(--tg-theme-hint-color, #e0e0e0);
+            padding: 16px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.06);
+        }
+
+        .confirmation-summary {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .confirmation-total {
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .confirmation-button {
+            width: 100%;
+            padding: 16px;
+            background: var(--tg-theme-button-color, #007aff);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .confirmation-agreement {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            margin-top: 8px;
+            line-height: 1.4;
+        }
+
         .loading {
             display: none;
             text-align: center;
@@ -515,6 +567,18 @@
             <button class="services-next-btn" id="services-next" onclick="goToSpecialistsFromServices()" disabled>К выбору специалиста</button>
         </div>
 
+        <!-- Confirmation footer -->
+        <div class="confirmation-footer" id="confirmation-footer" style="display:none;">
+            <div class="confirmation-summary">
+                <div id="confirmation-count">1 услуга</div>
+                <div class="confirmation-total" id="confirmation-total">40 BYN</div>
+            </div>
+            <button class="confirmation-button" onclick="confirmBooking()">Подтвердить запись</button>
+            <div class="confirmation-agreement">
+                Даю согласие на обработку указанных данных для целей бронирования услуг и обратной связи
+            </div>
+        </div>
+
         <!-- Specialists screen -->
         <div id="specialists-screen" style="display:none;">
             <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
@@ -546,6 +610,61 @@
                 <h3 class="section-title" style="margin-bottom:8px; font-size:16px;">Выберите время</h3>
                 <div id="time-container">
                     <!-- Время будет загружено динамически -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirmation screen -->
+        <div id="confirmation-screen" style="display:none;">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+                <button class="button secondary" onclick="goBackToDateTime()" style="padding:8px 12px; font-size:14px;">← Назад</button>
+                <h2 class="section-title" style="margin:0;">Проверьте запись</h2>
+            </div>
+            
+            <div style="padding-bottom:120px;">
+                <!-- Specialist info -->
+                <div class="booking-detail-card">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div style="width:50px; height:50px; border-radius:50%; background:#f0f0f0; display:flex; align-items:center; justify-content:center; font-size:20px;">👤</div>
+                        <div style="flex:1;">
+                            <div style="font-weight:600; font-size:16px;" id="confirm-specialist-name">Специалист</div>
+                            <div style="color:#666; font-size:14px;" id="confirm-specialist-role">BARBER</div>
+                        </div>
+                        <button class="button secondary" onclick="goBackToSpecialists()" style="padding:6px; font-size:12px;">✏️</button>
+                    </div>
+                </div>
+
+                <!-- Date and time info -->
+                <div class="booking-detail-card">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div style="flex:1;">
+                            <div style="font-weight:600; font-size:16px;" id="confirm-date">Дата</div>
+                            <div style="color:#666; font-size:14px;" id="confirm-time">Время</div>
+                        </div>
+                        <button class="button secondary" onclick="goBackToDateTime()" style="padding:6px; font-size:12px;">✏️</button>
+                    </div>
+                </div>
+
+                <!-- Services info -->
+                <div class="booking-detail-card">
+                    <div style="font-weight:600; font-size:16px;" id="confirm-services">Услуги</div>
+                    <div style="color:#666; font-size:14px;" id="confirm-services-price">Цена</div>
+                </div>
+
+                <!-- Client info -->
+                <div class="booking-detail-card">
+                    <div style="font-weight:600; font-size:14px; margin-bottom:8px;">Имя</div>
+                    <input type="text" id="client-name" placeholder="Ваше имя" style="width:100%; padding:12px; border:1px solid #e0e0e0; border-radius:8px; font-size:16px;" />
+                </div>
+
+                <div class="booking-detail-card">
+                    <div style="font-weight:600; font-size:14px; margin-bottom:8px;">Телефон</div>
+                    <input type="tel" id="client-phone" placeholder="+375 25 123 4567" style="width:100%; padding:12px; border:1px solid #e0e0e0; border-radius:8px; font-size:16px;" />
+                </div>
+
+                <div class="booking-detail-card">
+                    <div style="font-weight:600; font-size:14px; margin-bottom:8px;">Комментарий</div>
+                    <input type="text" id="client-comment" placeholder="необязательно" style="width:100%; padding:12px; border:1px solid #e0e0e0; border-radius:8px; font-size:16px;" />
                 </div>
             </div>
         </div>
@@ -873,7 +992,7 @@
             // Обрезаем секунды, оставляем только часы и минуты
             selectedTime = time.substring(0, 5);
             renderTimes();
-            showConfirmSection();
+            goToConfirmation();
         }
 
         // Подтверждение записи
@@ -1095,9 +1214,76 @@
             document.getElementById('services-screen').style.display = 'none';
             document.getElementById('specialists-screen').style.display = 'none';
             document.getElementById('datetime-screen').style.display = 'block';
+            document.getElementById('confirmation-screen').style.display = 'none';
             document.getElementById('services-footer').style.display = 'none';
+            document.getElementById('confirmation-footer').style.display = 'none';
             document.getElementById('subtitle').innerText = 'Выберите дату и время';
             loadAvailableSlots();
+        }
+
+        function goToConfirmation() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('services-screen').style.display = 'none';
+            document.getElementById('specialists-screen').style.display = 'none';
+            document.getElementById('datetime-screen').style.display = 'none';
+            document.getElementById('confirmation-screen').style.display = 'block';
+            document.getElementById('services-footer').style.display = 'none';
+            document.getElementById('confirmation-footer').style.display = 'block';
+            document.getElementById('subtitle').innerText = 'Проверьте запись';
+            populateConfirmationData();
+        }
+
+        function goBackToDateTime() {
+            document.getElementById('confirmation-screen').style.display = 'none';
+            document.getElementById('datetime-screen').style.display = 'block';
+            document.getElementById('confirmation-footer').style.display = 'none';
+            document.getElementById('subtitle').innerText = 'Выберите дату и время';
+        }
+
+        function populateConfirmationData() {
+            // Specialist info
+            const specialistName = document.getElementById('confirm-specialist-name');
+            const specialistRole = document.getElementById('confirm-specialist-role');
+            if (isAnySpecialist) {
+                specialistName.textContent = 'Любой доступный';
+                specialistRole.textContent = 'BARBER';
+            } else {
+                const specialist = specialists.find(s => Number(s.id) === Number(selectedSpecialistId));
+                specialistName.textContent = specialist ? specialist.name : 'Специалист';
+                specialistRole.textContent = specialist ? (specialist.specialty || 'BARBER') : 'BARBER';
+            }
+
+            // Date and time
+            const date = new Date(selectedDate);
+            const weekday = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'][date.getDay()];
+            const dateStr = `${date.getDate()} ${['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'][date.getMonth()]}, ${weekday.toLowerCase()}`;
+            document.getElementById('confirm-date').textContent = dateStr;
+            document.getElementById('confirm-time').textContent = `${selectedTime}-${getEndTime(selectedTime)}, 1 ч`;
+
+            // Services
+            const selectedServices = services.filter(s => selectedServiceIds.has(s.id));
+            const servicesText = selectedServices.map(s => s.name).join(', ');
+            const totalPrice = selectedServices.reduce((sum, s) => sum + Number(s.price || 0), 0);
+            document.getElementById('confirm-services').textContent = servicesText || 'Услуги не выбраны';
+            document.getElementById('confirm-services-price').textContent = `${(totalPrice/100).toFixed(2)} BYN`;
+
+            // Update footer
+            document.getElementById('confirmation-count').textContent = `${selectedServices.length} ${pluralize(selectedServices.length, 'услуга', 'услуги', 'услуг')}`;
+            document.getElementById('confirmation-total').textContent = `${(totalPrice/100).toFixed(2)} BYN`;
+
+            // Pre-fill client data
+            if (user) {
+                document.getElementById('client-name').value = user.first_name || '';
+                document.getElementById('client-phone').value = user.phone_number || '';
+            }
+        }
+
+        function getEndTime(startTime) {
+            const [hours, minutes] = startTime.split(':').map(Number);
+            const endMinutes = minutes + 60; // 1 hour duration
+            const endHours = hours + Math.floor(endMinutes / 60);
+            const finalMinutes = endMinutes % 60;
+            return `${String(endHours).padStart(2, '0')}:${String(finalMinutes).padStart(2, '0')}`;
         }
 
         // Старт: показываем первый экран
