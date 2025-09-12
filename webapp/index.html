@@ -258,6 +258,37 @@
             cursor: not-allowed;
         }
 
+        /* Services footer (sticky) */
+        .services-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--tg-theme-bg-color, #ffffff);
+            border-top: 1px solid var(--tg-theme-hint-color, #e0e0e0);
+            padding: 12px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.06);
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .services-summary {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .services-next-btn {
+            padding: 14px 16px;
+            background: var(--tg-theme-button-color, #007aff);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .services-next-btn:disabled { opacity: 0.6; }
+
         .loading {
             display: none;
             text-align: center;
@@ -471,9 +502,14 @@
         <!-- Services screen -->
         <div id="services-screen" style="display:none;">
             <h2 class="section-title" style="margin-bottom:8px;">🧾 Услуги</h2>
-            <div id="services-list"></div>
-            <div style="height:16px;"></div>
-            <button class="confirm-button" id="services-next" onclick="goToSpecialistsFromServices()" disabled>К выбору специалиста</button>
+            <div id="services-list" style="padding-bottom:80px;"></div>
+        </div>
+        <div class="services-footer" id="services-footer" style="display:none;">
+            <div class="services-summary">
+                <div id="services-count">0 услуг</div>
+                <div id="services-total" style="font-weight:700;">0 BYN</div>
+            </div>
+            <button class="services-next-btn" id="services-next" onclick="goToSpecialistsFromServices()" disabled>К выбору специалиста</button>
         </div>
 
         <!-- Specialists screen -->
@@ -646,12 +682,28 @@
 
         function toggleService(id, checked) {
             if (checked) selectedServiceIds.add(id); else selectedServiceIds.delete(id);
-            updateServicesNext();
+            updateServicesSummary();
         }
 
-        function updateServicesNext() {
-            const btn = document.getElementById('services-next');
-            if (btn) btn.disabled = selectedServiceIds.size === 0;
+        function updateServicesSummary() {
+            const count = selectedServiceIds.size;
+            let total = 0;
+            services.forEach(s => { if (selectedServiceIds.has(s.id)) total += Number(s.price||0); });
+            const countEl = document.getElementById('services-count');
+            const totalEl = document.getElementById('services-total');
+            const footer = document.getElementById('services-footer');
+            const nextBtn = document.getElementById('services-next');
+            if (footer) footer.style.display = count > 0 ? 'flex' : 'none';
+            if (countEl) countEl.textContent = `${count} ${pluralize(count, 'услуга','услуги','услуг')}`;
+            if (totalEl) totalEl.textContent = `${(total/100).toFixed(2)} BYN`;
+            if (nextBtn) nextBtn.disabled = count === 0;
+        }
+
+        function pluralize(n, one, few, many) {
+            const mod10 = n % 10, mod100 = n % 100;
+            if (mod10 === 1 && mod100 !== 11) return one;
+            if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+            return many;
         }
 
         // Рендер списка специалистов
@@ -978,6 +1030,9 @@
             document.getElementById('services-screen').style.display = 'block';
             document.getElementById('subtitle').innerText = 'Выберите услуги';
             loadServices();
+            // скрыть нижние секции при входе в выбор услуг
+            document.getElementById('services-footer').style.display = 'none';
+            selectedServiceIds = new Set();
         }
 
         function goToSpecialists() {
