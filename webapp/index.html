@@ -590,17 +590,32 @@
                 if (data.success) {
                     services = data.services || [];
                     renderServicesList();
+                } else {
+                    console.error('API services error:', data.error);
+                    const list = document.getElementById('services-list');
+                    if (list) list.innerHTML = '<div class="error">Ошибка загрузки услуг</div>';
                 }
-            } catch (e) { console.error('Error loading services', e); }
+            } catch (e) {
+                console.error('Error loading services', e);
+                const list = document.getElementById('services-list');
+                if (list) list.innerHTML = '<div class="error">Ошибка соединения при загрузке услуг</div>';
+            }
         }
 
         // Рендер списка услуг
         function renderServicesList() {
             const list = document.getElementById('services-list');
             if (!list) return;
+            if (!services.length) {
+                list.innerHTML = '<div class="loading">Услуги пока не добавлены</div>';
+                updateServicesNext();
+                return;
+            }
+
             list.innerHTML = services.map(s => {
                 const checked = selectedServiceIds.has(s.id) ? 'checked' : '';
-                const price = s.price != null ? `${(s.price/100).toFixed(2)} BYN` : '';
+                const priceVal = Number(s.price || 0);
+                const price = priceVal > 0 ? `${(priceVal/100).toFixed(2)} BYN` : '';
                 return `
                     <label style="display:block; padding:12px; border:1px solid var(--tg-theme-hint-color,#e0e0e0); border-radius:12px; margin-bottom:8px; background: var(--tg-theme-bg-color,#fff);">
                         <div style="display:flex; gap:12px; align-items:flex-start;">
