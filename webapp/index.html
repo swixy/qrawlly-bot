@@ -338,10 +338,6 @@
             margin-left: 8px;
         }
 
-        .service-remove:disabled {
-            background: var(--tg-theme-hint-color, #ccc);
-            cursor: not-allowed;
-        }
 
         .confirmation-footer {
             position: fixed;
@@ -1357,11 +1353,7 @@
                         <div class="service-name">${service.name}</div>
                         <div class="service-price">${(Number(service.price || 0)/100).toFixed(2)} BYN</div>
                     </div>
-                    <button class="service-remove" 
-                            onclick="removeService(${service.id})" 
-                            ${selectedServices.length === 1 ? 'disabled' : ''}>
-                        ✕
-                    </button>
+                    ${selectedServices.length > 1 ? `<button class="service-remove" onclick="removeService(${service.id})">✕</button>` : ''}
                 </div>
             `).join('');
         }
