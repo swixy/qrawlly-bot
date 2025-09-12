@@ -569,8 +569,40 @@
 
                 <!-- Settings -->
                 <div id="tab-settings" class="tab" style="display:none;">
+                    <!-- Organization Settings -->
                     <div class="panel-card">
-                        <h2>⚙️ Настройки</h2>
+                        <h2>🏢 Настройки организации</h2>
+                        <div class="row">
+                            <div class="form-group">
+                                <label for="org-display-name">Название организации</label>
+                                <input type="text" id="org-display-name" placeholder="Барбершоп" />
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="form-group">
+                                <label for="org-logo-url">URL логотипа</label>
+                                <input type="url" id="org-logo-url" placeholder="https://example.com/logo.png" />
+                                <small style="color: #6e6e73; font-size: 12px; margin-top: 4px; display: block;">
+                                    Рекомендуемый размер: 64x64px или больше
+                                </small>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="form-group">
+                                <label>Предпросмотр логотипа:</label>
+                                <div id="logo-preview" style="margin-top: 8px; padding: 16px; border: 1px solid #e0e0e0; border-radius: 8px; text-align: center; background: #f8f8f8;">
+                                    <img id="preview-img" src="" style="max-width: 64px; max-height: 64px; display: none;" />
+                                    <div id="preview-text" style="color: #6e6e73; font-size: 14px;">Логотип не выбран</div>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="button" onclick="saveOrganizationSettings()">Сохранить настройки</button>
+                        <div id="org-msg" style="margin-top:12px;"></div>
+                    </div>
+
+                    <!-- Assignment Settings -->
+                    <div class="panel-card">
+                        <h2>⚙️ Настройки назначения</h2>
                         <div class="row">
                             <div class="form-group">
                                 <label for="assign-mode">Режим назначения для «любой специалист»</label>
@@ -593,6 +625,11 @@
         function openTab(id) {
             document.querySelectorAll('.tab').forEach(t => t.style.display = 'none');
             document.getElementById(id).style.display = 'block';
+            
+            // Load organization settings when opening settings tab
+            if (id === 'tab-settings') {
+                loadOrganizationSettings();
+            }
         }
 
         // Загрузка списка специалистов
@@ -659,6 +696,72 @@
             } catch (e) { showError('Ошибка деактивации'); }
         }
 
+        // Organization settings
+        async function loadOrganizationSettings() {
+            try {
+                const res = await fetch('/api/admin/organization');
+                const data = await res.json();
+                if (data.success && data.organization) {
+                    document.getElementById('org-display-name').value = data.organization.display_name || '';
+                    document.getElementById('org-logo-url').value = data.organization.logo_url || '';
+                    updateLogoPreview();
+                }
+            } catch (e) {
+                console.error('Error loading organization settings:', e);
+            }
+        }
+
+        function updateLogoPreview() {
+            const logoUrl = document.getElementById('org-logo-url').value;
+            const previewImg = document.getElementById('preview-img');
+            const previewText = document.getElementById('preview-text');
+            
+            if (logoUrl) {
+                previewImg.src = logoUrl;
+                previewImg.style.display = 'block';
+                previewText.style.display = 'none';
+                
+                // Handle image load error
+                previewImg.onerror = function() {
+                    previewImg.style.display = 'none';
+                    previewText.style.display = 'block';
+                    previewText.textContent = 'Ошибка загрузки изображения';
+                };
+            } else {
+                previewImg.style.display = 'none';
+                previewText.style.display = 'block';
+                previewText.textContent = 'Логотип не выбран';
+            }
+        }
+
+        async function saveOrganizationSettings() {
+            const displayName = document.getElementById('org-display-name').value.trim();
+            const logoUrl = document.getElementById('org-logo-url').value.trim();
+            const msgDiv = document.getElementById('org-msg');
+            
+            if (!displayName || !logoUrl) {
+                msgDiv.innerHTML = '<div class="error">Заполните все поля</div>';
+                return;
+            }
+            
+            msgDiv.innerHTML = '';
+            try {
+                const res = await fetch('/api/admin/update-organization', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ display_name: displayName, logo_url: logoUrl })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    msgDiv.innerHTML = '<div class="success">Настройки сохранены</div>';
+                } else {
+                    msgDiv.innerHTML = `<div class="error">${data.error || 'Ошибка сохранения'}</div>`;
+                }
+            } catch (e) {
+                msgDiv.innerHTML = '<div class="error">Ошибка соединения</div>';
+            }
+        }
+
         async function saveAssignMode() {
             const mode = document.getElementById('assign-mode').value;
             const a = document.getElementById('assign-msg');
@@ -675,6 +778,9 @@
         }
 
         document.getElementById('filter-spec').addEventListener('change', loadBookings);
+        
+        // Add event listener for logo URL input
+        document.getElementById('org-logo-url').addEventListener('input', updateLogoPreview);
         // Генерируем слоты времени
         function generateTimeSlots() {
             const timeSlots = document.getElementById('time-slots');

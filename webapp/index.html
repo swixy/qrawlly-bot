@@ -571,7 +571,10 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>✂️ Запись</h1>
+            <h1 id="header-title">
+                <img id="org-logo" src="" style="width: 24px; height: 24px; margin-right: 8px; display: none;" />
+                <span id="org-name">✂️ Запись</span>
+            </h1>
             <p id="subtitle">С чего начать?</p>
         </div>
 
@@ -1385,8 +1388,37 @@
             document.getElementById('confirmation-total').textContent = `${(totalPrice/100).toFixed(2)} BYN`;
         }
 
+        // Load organization settings
+        async function loadOrganizationSettings() {
+            try {
+                const res = await fetch('/api/admin/organization');
+                const data = await res.json();
+                if (data.success && data.organization) {
+                    const orgName = document.getElementById('org-name');
+                    const orgLogo = document.getElementById('org-logo');
+                    
+                    if (data.organization.display_name) {
+                        orgName.textContent = data.organization.display_name;
+                    }
+                    
+                    if (data.organization.logo_url) {
+                        orgLogo.src = data.organization.logo_url;
+                        orgLogo.style.display = 'inline-block';
+                        orgLogo.onerror = function() {
+                            orgLogo.style.display = 'none';
+                        };
+                    }
+                }
+            } catch (e) {
+                console.error('Error loading organization settings:', e);
+            }
+        }
+
         // Старт: показываем первый экран
         document.getElementById('start-screen').style.display = 'block';
+        
+        // Load organization settings on page load
+        loadOrganizationSettings();
     </script>
 </body>
 </html>

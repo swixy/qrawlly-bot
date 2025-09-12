@@ -120,6 +120,8 @@ async function initSchema() {
       ? `CREATE TABLE IF NOT EXISTS organizations (
            id SERIAL PRIMARY KEY,
            name TEXT NOT NULL,
+           display_name TEXT,
+           logo_url TEXT,
            bot_token TEXT,
            webapp_url TEXT,
            created_at TIMESTAMP DEFAULT NOW()
@@ -127,6 +129,8 @@ async function initSchema() {
       : `CREATE TABLE IF NOT EXISTS organizations (
            id INTEGER PRIMARY KEY AUTOINCREMENT,
            name TEXT NOT NULL,
+           display_name TEXT,
+           logo_url TEXT,
            bot_token TEXT,
            webapp_url TEXT,
            created_at TEXT DEFAULT (datetime('now'))
@@ -219,15 +223,19 @@ async function initSchema() {
   );
   if (!existingOrg) {
     if (isPostgres) {
-      await run('INSERT INTO organizations (id, name, webapp_url) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [
+      await run('INSERT INTO organizations (id, name, display_name, logo_url, webapp_url) VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING', [
         defaultOrgId,
         'Default Organization',
+        'Барбершоп',
+        'https://cdn-icons-png.flaticon.com/512/1995/1995515.png',
         process.env.WEBAPP_URL || ''
       ]);
     } else {
-      await run('INSERT OR IGNORE INTO organizations (id, name, webapp_url) VALUES (?,?,?)', [
+      await run('INSERT OR IGNORE INTO organizations (id, name, display_name, logo_url, webapp_url) VALUES (?,?,?,?,?)', [
         defaultOrgId,
         'Default Organization',
+        'Барбершоп',
+        'https://cdn-icons-png.flaticon.com/512/1995/1995515.png',
         process.env.WEBAPP_URL || ''
       ]);
     }
@@ -660,6 +668,37 @@ app.get('/api/admin/services', (req, res) => {
   db.all(sql, [], (err, rows) => {
     if (err) return res.json({ success: false, error: 'Database error' });
     res.json({ success: true, services: rows });
+  });
+});
+
+// Organization settings API
+app.get('/api/admin/organization', (req, res) => {
+  const defaultOrgId = parseInt(process.env.ORG_ID || '1', 10);
+  const sql = isPostgres 
+    ? 'SELECT id, name, display_name, logo_url FROM organizations WHERE id=$1'
+    : 'SELECT id, name, display_name, logo_url FROM organizations WHERE id=?';
+  
+  db.get(sql, [defaultOrgId], (err, row) => {
+    if (err) return res.json({ success: false, error: 'Database error' });
+    res.json({ success: true, organization: row });
+  });
+});
+
+app.post('/api/admin/update-organization', (req, res) => {
+  const { display_name, logo_url } = req.body;
+  const defaultOrgId = parseInt(process.env.ORG_ID || '1', 10);
+  
+  if (!display_name || !logo_url) {
+    return res.json({ success: false, error: 'Название и логотип обязательны' });
+  }
+  
+  const sql = isPostgres
+    ? 'UPDATE organizations SET display_name=$1, logo_url=$2 WHERE id=$3'
+    : 'UPDATE organizations SET display_name=?, logo_url=? WHERE id=?';
+  
+  db.run(sql, [display_name, logo_url, defaultOrgId], (err) => {
+    if (err) return res.json({ success: false, error: 'Database error' });
+    res.json({ success: true });
   });
 });
 
