@@ -501,8 +501,11 @@
 
         <!-- Services screen -->
         <div id="services-screen" style="display:none;">
-            <h2 class="section-title" style="margin-bottom:8px;">🧾 Услуги</h2>
-            <div id="services-list" style="padding-bottom:80px;"></div>
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+                <button class="button secondary" onclick="goBackToStart()" style="padding:8px 12px; font-size:14px;">← Назад</button>
+                <h2 class="section-title" style="margin:0;">🧾 Услуги</h2>
+            </div>
+            <div id="services-list" style="padding-bottom:120px;"></div>
         </div>
         <div class="services-footer" id="services-footer" style="display:none;">
             <div class="services-summary">
@@ -514,25 +517,33 @@
 
         <!-- Specialists screen -->
         <div id="specialists-screen" style="display:none;">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+                <button class="button secondary" onclick="goBackToServices()" style="padding:8px 12px; font-size:14px;">← Назад</button>
+                <h2 class="section-title" style="margin:0;">👤 Специалисты</h2>
+            </div>
             <div class="card" onclick="skipSpecialist()" style="margin-bottom:12px;">
                 <div class="card-title">Пропустить выбор специалиста</div>
                 <div class="card-sub">Перейти к выбору даты и времени</div>
             </div>
-            <h2 class="section-title" style="margin-bottom:8px;">👤 Специалисты</h2>
+            <h3 class="section-title" style="margin-bottom:8px; font-size:16px;">Выберите мастера</h3>
             <div id="specialists-list"></div>
         </div>
 
         <!-- DateTime screen -->
         <div id="datetime-screen" style="display:none;">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+                <button class="button secondary" onclick="goBackToSpecialists()" style="padding:8px 12px; font-size:14px;">← Назад</button>
+                <h2 class="section-title" style="margin:0;">📅 Дата и время</h2>
+            </div>
             <div class="date-section">
-                <h2 class="section-title">📅 Выберите дату</h2>
+                <h3 class="section-title" style="margin-bottom:8px; font-size:16px;">Выберите дату</h3>
                 <div id="date-scroll" class="date-scroll">
                     <!-- Даты будут загружены динамически -->
                 </div>
             </div>
 
             <div class="time-section" id="time-section" style="display: none;">
-                <h2 class="section-title">⏰ Выберите время</h2>
+                <h3 class="section-title" style="margin-bottom:8px; font-size:16px;">Выберите время</h3>
                 <div id="time-container">
                     <!-- Время будет загружено динамически -->
                 </div>
@@ -1044,6 +1055,28 @@
 
         function goToSpecialistsFromServices() {
             goToSpecialists();
+        }
+
+        function goBackToStart() {
+            document.getElementById('services-screen').style.display = 'none';
+            document.getElementById('specialists-screen').style.display = 'none';
+            document.getElementById('datetime-screen').style.display = 'none';
+            document.getElementById('start-screen').style.display = 'block';
+            document.getElementById('subtitle').innerText = 'С чего начать?';
+            document.getElementById('services-footer').style.display = 'none';
+        }
+
+        function goBackToServices() {
+            document.getElementById('specialists-screen').style.display = 'none';
+            document.getElementById('datetime-screen').style.display = 'none';
+            document.getElementById('services-screen').style.display = 'block';
+            document.getElementById('subtitle').innerText = 'Выберите услуги';
+        }
+
+        function goBackToSpecialists() {
+            document.getElementById('datetime-screen').style.display = 'none';
+            document.getElementById('specialists-screen').style.display = 'block';
+            document.getElementById('subtitle').innerText = 'Выберите специалиста';
         }
 
         function skipSpecialist() {
