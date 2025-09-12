@@ -272,12 +272,16 @@ app.get('/api/slots', (req, res) => {
   const { specialist_id, organization_id, anySpecialist } = req.query;
   const filters = [];
   const params = [];
+  const addParam = (value) => {
+    params.push(Number(value));
+    return isPostgres ? '$' + params.length : '?';
+  };
 
   if (specialist_id) {
-    filters.push('specialist_id = ' + (isPostgres ? '$' + (params.push(Number(specialist_id))) : '?'));
+    filters.push('specialist_id = ' + addParam(specialist_id));
   }
   if (organization_id) {
-    filters.push('organization_id = ' + (isPostgres ? '$' + (params.push(Number(organization_id))) : '?'));
+    filters.push('organization_id = ' + addParam(organization_id));
   }
   filters.push(`is_booked=${isPostgres ? 'false' : '0'}`);
 
@@ -549,11 +553,15 @@ app.get('/api/admin/available-times', (req, res) => {
   
   const filters = ['date = ' + (isPostgres ? '$1' : '?'), `is_booked=${isPostgres ? 'false' : '0'}`];
   const params = [date];
+  const addParam = (value) => {
+    params.push(Number(value));
+    return isPostgres ? '$' + params.length : '?';
+  };
   if (specialist_id) {
-    filters.push('specialist_id = ' + (isPostgres ? '$' + (params.push(Number(specialist_id))) : '?'));
+    filters.push('specialist_id = ' + addParam(specialist_id));
   }
   if (organization_id) {
-    filters.push('organization_id = ' + (isPostgres ? '$' + (params.push(Number(organization_id))) : '?'));
+    filters.push('organization_id = ' + addParam(organization_id));
   }
   const sql = `SELECT time FROM slots WHERE ${filters.join(' AND ')} ORDER BY time`;
   
